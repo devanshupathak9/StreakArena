@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: streakarena-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: streak
+      POSTGRES_PASSWORD: streak
+      POSTGRES_DB: streakarena
+    ports:
+      - "5433:5432"
+    volumes:
+      - streakarena-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U streak -d streakarena"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  streakarena-data:
