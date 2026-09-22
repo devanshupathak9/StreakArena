@@ -3,7 +3,7 @@ import { prisma } from "../db.js";
 import { loadUser, requireAuth } from "../auth.js";
 import { getPlatform, isPlatformId } from "../platforms.js";
 import { currentStreak, fromDbDate, longestStreak, todayInTz } from "../streak.js";
-import { removeStored, resolveStored, upload, uploadErrorMessage } from "../uploads.js";
+import { openStored, removeStored, storeUpload, upload, uploadErrorMessage } from "../uploads.js";
 
 export const groupsRouter = Router();
 
@@ -406,6 +406,10 @@ groupsRouter.post("/groups/:id/messages", acceptAttachment, async (req, res) => 
     return res.status(400).json({ error: `Keep it under ${MESSAGE_MAX} characters` });
   }
 
+  // Persisted only once membership and the body have passed, so a rejected message
+  // never leaves bytes behind.
+  const storedKey = req.file ? await storeUpload(req.file) : null;
+
   const message = await prisma.groupMessage.create({
     data: {
       groupId: group.id,
@@ -416,7 +420,7 @@ groupsRouter.post("/groups/:id/messages", acceptAttachment, async (req, res) => 
             fileName: req.file.originalname.slice(0, 200),
             fileType: req.file.mimetype,
             fileSize: req.file.size,
-            filePath: req.file.filename,
+            filePath: storedKey,
           }
         : {}),
     },
@@ -440,13 +444,20 @@ groupsRouter.get("/groups/:id/messages/:messageId/file", async (req, res) => {
   });
   if (!message?.filePath) return res.status(404).json({ error: "No such file" });
 
-  const resolved = resolveStored(message.filePath);
-  if (!resolved) return res.status(404).json({ error: "No such file" });
+  const stream = await openStored(message.filePath);
+  if (!stream) return res.status(404).json({ error: "No such file" });
 
   res.type(message.fileType ?? "application/octet-stream");
   res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.download(resolved, message.fileName ?? "attachment", (error) => {
-    if (error && !res.headersSent) res.status(404).json({ error: "No such file" });
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${(message.fileName ?? "attachment").replace(/"/g, "")}"`,
+  );
+
+  stream.on("error", () => {
+    if (!res.headersSent) res.status(404).json({ error: "No such file" });
+    else res.end();
   });
+  stream.pipe(res);
 });

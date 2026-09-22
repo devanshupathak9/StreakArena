@@ -1,0 +1,17 @@
+# Copy to terraform.tfvars and edit. That file is gitignored.
+
+region      = "ap-south-1"
+environment = "prod"
+
+github_repository = "devanshupathak9/StreakArena"
+
+# A classic personal access token with NO scopes ticked. Without it, GitHub sync
+# falls back to the public events API: ~90 days, 60 requests/hour shared by everyone.
+github_token = ""
+
+# Optional. Both are needed together; the certificate must live in us-east-1.
+# domain_name         = "streakarena.app"
+# acm_certificate_arn = "arn:aws:acm:us-east-1:...:certificate/..."
+
+# desired_count     = 1
+# db_instance_class = "db.t4g.micro"
