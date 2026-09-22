@@ -2,17 +2,14 @@ import type { ReactNode } from "react";
 
 const POINTS = [
   {
-    emoji: "🔗",
     title: "Link your handles once",
     text: "GitHub, LeetCode, Codeforces, Chess.com, Duolingo.",
   },
   {
-    emoji: "⟳",
     title: "Sync proves it",
     text: "Your real activity is read back from each platform — no self-reporting.",
   },
   {
-    emoji: "🏁",
     title: "Race your friends",
     text: "Shared challenges, a group leaderboard, and a global board for everyone.",
   },
@@ -45,13 +42,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           <ul className="auth-points">
             {POINTS.map((point) => (
               <li key={point.title}>
-                <span className="auth-point-emoji" aria-hidden="true">
-                  {point.emoji}
-                </span>
-                <span>
-                  <strong>{point.title}</strong>
-                  <span className="auth-point-text">{point.text}</span>
-                </span>
+                <strong>{point.title}</strong>
+                <span className="auth-point-text">{point.text}</span>
               </li>
             ))}
           </ul>

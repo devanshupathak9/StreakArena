@@ -67,6 +67,11 @@ tasksRouter.get("/dashboard", async (req, res) => {
   const summaries = tasks.map((task) => {
     const dates = task.completions.map((c) => fromDbDate(c.localDate));
     const done = new Set(dates);
+    // A day the platform confirmed reads differently from one you ticked yourself,
+    // so the tile needs to know which it was.
+    const verified = new Set(
+      task.completions.filter((c) => c.source === "synced").map((c) => fromDbDate(c.localDate)),
+    );
     for (const date of done) doneByDate.set(date, (doneByDate.get(date) ?? 0) + 1);
 
     // A task counts towards a day's total from its creation date — or from its
@@ -87,7 +92,11 @@ tasksRouter.get("/dashboard", async (req, res) => {
         syncedDays: task.completions.filter((c) => c.source === "synced").length,
         platform: taskPlatform(task.platform, linked),
         doneToday: done.has(today),
-        tiles: tileWindow.map((date) => ({ date, done: done.has(date) })),
+        tiles: tileWindow.map((date) => ({
+          date,
+          done: done.has(date),
+          verified: verified.has(date),
+        })),
       },
     };
   });

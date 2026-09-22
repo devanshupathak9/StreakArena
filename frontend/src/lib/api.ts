@@ -20,7 +20,7 @@ export type ProfileInput = {
   avatarUrl?: string;
 };
 
-export type Tile = { date: string; done: boolean };
+export type Tile = { date: string; done: boolean; verified: boolean };
 
 export type GlobalRow = {
   userId: string;
@@ -112,6 +112,8 @@ export type GroupSummary = {
   isOwner: boolean;
   memberCount: number;
   challengeCount: number;
+  yourRank: number | null;
+  owedToday: boolean;
 };
 
 export type GroupChallenge = {

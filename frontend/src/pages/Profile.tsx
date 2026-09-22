@@ -82,17 +82,22 @@ export default function Profile() {
           <h1>{user.displayName || user.username}</h1>
           <p className="muted">@{user.username}</p>
           {user.bio && <p className="profile-bio">{user.bio}</p>}
-          <p className="task-meta">
+          <dl className="profile-facts">
             {user.location && (
-              <>
-                <span>📍 {user.location}</span>
-                <span className="dot">·</span>
-              </>
+              <div>
+                <dt>Location</dt>
+                <dd>{user.location}</dd>
+              </div>
             )}
-            <span>🕑 {user.timezone}</span>
-            <span className="dot">·</span>
-            <span>joined {new Date(user.createdAt).toLocaleDateString()}</span>
-          </p>
+            <div>
+              <dt>Day rolls over</dt>
+              <dd>{user.timezone}</dd>
+            </div>
+            <div>
+              <dt>Joined</dt>
+              <dd>{new Date(user.createdAt).toLocaleDateString()}</dd>
+            </div>
+          </dl>
         </div>
 
         {!editing && (
@@ -104,24 +109,27 @@ export default function Profile() {
 
       {message && <p className="success">{message}</p>}
 
-      <div className="stat-grid">
-        <div className="stat-card">
-          <span className="stat-value stat-value-flame">🔥 {running}</span>
-          <span className="stat-label">running streak</span>
+      <section className="standing">
+        <div className="streak-block">
+          <span className="streak-display">{running}</span>
+          <span className="streak-caption">day{running === 1 ? "" : "s"} running right now</span>
         </div>
-        <div className="stat-card">
-          <span className="stat-value">{bestEver}</span>
-          <span className="stat-label">longest ever</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-value">{stats?.tasks.length ?? 0}</span>
-          <span className="stat-label">tasks</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-value">{totalDone}</span>
-          <span className="stat-label">days completed</span>
-        </div>
-      </div>
+
+        <dl className="standing-figures">
+          <div>
+            <dt>Longest ever</dt>
+            <dd className="num">{bestEver}</dd>
+          </div>
+          <div>
+            <dt>Tasks</dt>
+            <dd className="num">{stats?.tasks.length ?? 0}</dd>
+          </div>
+          <div>
+            <dt>Days completed</dt>
+            <dd className="num">{totalDone}</dd>
+          </div>
+        </dl>
+      </section>
 
       {editing && (
         <section className="card">

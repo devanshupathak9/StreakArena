@@ -30,33 +30,33 @@ export default function Global() {
         </div>
       </div>
 
-      <div className="stat-grid">
-        <div className="stat-card">
-          <span className="stat-value">{data.totals.members}</span>
-          <span className="stat-label">members</span>
+      <dl className="figures">
+        <div>
+          <dt>Members</dt>
+          <dd className="num">{data.totals.members}</dd>
         </div>
-        <div className="stat-card">
-          <span className="stat-value">{data.totals.tasks}</span>
-          <span className="stat-label">tasks tracked</span>
+        <div>
+          <dt>Tasks tracked</dt>
+          <dd className="num">{data.totals.tasks}</dd>
         </div>
-        <div className="stat-card">
-          <span className="stat-value">{data.totals.days}</span>
-          <span className="stat-label">days logged</span>
+        <div>
+          <dt>Days logged</dt>
+          <dd className="num">{data.totals.days}</dd>
         </div>
-        <div className="stat-card">
-          <span className="stat-value stat-value-flame">{data.totals.verified}</span>
-          <span className="stat-label">verified by platforms</span>
+        <div>
+          <dt>Verified days</dt>
+          <dd className="num">{data.totals.verified}</dd>
         </div>
-      </div>
+      </dl>
 
-      <section className="card">
+      <section className="board-section">
         <div className="card-head">
-          <h2>Leaderboard</h2>
+          <h2>Standings</h2>
           <p className="muted small">Live streak first, then lifetime best</p>
         </div>
 
         {data.board.length === 0 ? (
-          <p className="empty">Nobody here yet.</p>
+          <p className="empty">No one is tracking a streak here yet.</p>
         ) : (
           <div className="table-wrap">
             <table className="board">

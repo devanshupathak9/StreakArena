@@ -40,6 +40,47 @@ async function requireMembership(groupId, userId) {
   return membership?.group ?? null;
 }
 
+/**
+ * Rank every member of a group by their combined live streaks.
+ *
+ * Each member is measured against today in *their own* timezone, so this can't be a
+ * SQL aggregate. Returns standings sorted best-first.
+ */
+function computeStandings(members, challenges, viewerId) {
+  const standings = members.map((member) => {
+    const { user } = member;
+    const today = todayInTz(user.timezone);
+
+    const perChallenge = challenges.map((challenge) => {
+      const task = challenge.tasks.find((t) => t.userId === user.id);
+      const dates = task?.completions.map((c) => fromDbDate(c.localDate)) ?? [];
+      return {
+        challengeId: challenge.id,
+        joined: Boolean(task),
+        currentStreak: currentStreak(dates, today),
+        longestStreak: longestStreak(dates),
+        totalDays: dates.length,
+        doneToday: dates.includes(today),
+      };
+    });
+
+    return {
+      userId: user.id,
+      username: user.username,
+      displayName: user.displayName ?? null,
+      avatarUrl: user.avatarUrl ?? null,
+      isYou: user.id === viewerId,
+      // Today's form, not lifetime totals.
+      score: perChallenge.reduce((sum, entry) => sum + entry.currentStreak, 0),
+      doneToday: perChallenge.filter((entry) => entry.doneToday).length,
+      challenges: perChallenge,
+    };
+  });
+
+  standings.sort((a, b) => b.score - a.score || a.username.localeCompare(b.username));
+  return standings;
+}
+
 function platformSummary(id) {
   const platform = id && getPlatform(id);
   if (!platform) return null;
@@ -47,26 +88,57 @@ function platformSummary(id) {
 }
 
 groupsRouter.get("/groups", async (req, res) => {
+  // The sidebar shows a rank and an "owed today" dot per group, so the list carries
+  // both rather than the nav firing one request per group.
   const memberships = await prisma.groupMember.findMany({
     where: { userId: req.user.id },
     orderBy: { joinedAt: "asc" },
     include: {
       group: {
-        include: { _count: { select: { members: true, tasks: true } } },
+        include: {
+          _count: { select: { members: true, tasks: true } },
+          members: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  timezone: true,
+                  displayName: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
+          tasks: {
+            include: {
+              tasks: { select: { userId: true, completions: { select: { localDate: true } } } },
+            },
+          },
+        },
       },
     },
   });
 
-  res.json({
-    groups: memberships.map(({ group }) => ({
+  const groups = memberships.map(({ group }) => {
+    const standings = computeStandings(group.members, group.tasks, req.user.id);
+    const position = standings.findIndex((entry) => entry.isYou);
+    const mine = position === -1 ? null : standings[position];
+
+    return {
       id: group.id,
       name: group.name,
       inviteCode: group.inviteCode,
       isOwner: group.createdById === req.user.id,
       memberCount: group._count.members,
       challengeCount: group._count.tasks,
-    })),
+      yourRank: position === -1 ? null : position + 1,
+      // Any challenge here you haven't settled today.
+      owedToday: mine ? mine.challenges.some((c) => c.joined && !c.doneToday) : false,
+    };
   });
+
+  res.json({ groups });
 });
 
 groupsRouter.post("/groups", async (req, res) => {
@@ -157,37 +229,7 @@ groupsRouter.get("/groups/:id", async (req, res) => {
     }),
   ]);
 
-  const standings = members.map((member) => {
-    const { user } = member;
-    const today = todayInTz(user.timezone);
-
-    const perChallenge = challenges.map((challenge) => {
-      const task = challenge.tasks.find((t) => t.userId === user.id);
-      const dates = task?.completions.map((c) => fromDbDate(c.localDate)) ?? [];
-      return {
-        challengeId: challenge.id,
-        joined: Boolean(task),
-        currentStreak: currentStreak(dates, today),
-        longestStreak: longestStreak(dates),
-        totalDays: dates.length,
-        doneToday: dates.includes(today),
-      };
-    });
-
-    return {
-      userId: user.id,
-      username: user.username,
-      displayName: user.displayName ?? null,
-      avatarUrl: user.avatarUrl ?? null,
-      isYou: user.id === req.user.id,
-      // The score is the sum of live streaks: today's form, not lifetime totals.
-      score: perChallenge.reduce((sum, entry) => sum + entry.currentStreak, 0),
-      doneToday: perChallenge.filter((entry) => entry.doneToday).length,
-      challenges: perChallenge,
-    };
-  });
-
-  standings.sort((a, b) => b.score - a.score || a.username.localeCompare(b.username));
+  const standings = computeStandings(members, challenges, req.user.id);
 
   res.json({
     group: {

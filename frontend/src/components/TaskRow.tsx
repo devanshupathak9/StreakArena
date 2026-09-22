@@ -19,7 +19,7 @@ function PlatformBadge({ platform }: { platform: NonNullable<TaskSummary["platfo
   if (!platform.url) {
     return (
       <Link className="badge badge-muted" to="/profile">
-        <span aria-hidden="true">{platform.emoji}</span> Link {platform.label}
+Link {platform.label}
       </Link>
     );
   }
@@ -31,7 +31,7 @@ function PlatformBadge({ platform }: { platform: NonNullable<TaskSummary["platfo
       rel="noreferrer"
       title={`Open ${platform.handle} on ${platform.label}`}
     >
-      <span aria-hidden="true">{platform.emoji}</span> {platform.label} ↗
+{platform.label}
     </a>
   );
 }
@@ -108,27 +108,28 @@ export default function TaskRow({
               <h3 className="task-title">
                 {task.title}
                 {task.platform && <PlatformBadge platform={task.platform} />}
-                {task.syncedDays > 0 && (
+                {task.syncedDays > 0 ? (
                   <span
                     className="badge badge-verified"
                     title={`${task.syncedDays} days confirmed by ${task.platform?.label}`}
                   >
-                    ✓ verified
+                    ✓ Verified
                   </span>
+                ) : (
+                  !task.platform && <span className="badge badge-self">Self-reported</span>
                 )}
               </h3>
 
               {task.description && <p className="task-note">{task.description}</p>}
 
               <p className="task-meta">
-                <span className={task.currentStreak > 0 ? "flame" : "flame flame-cold"}>
-                  🔥 {task.currentStreak} day{task.currentStreak === 1 ? "" : "s"}
+                <span className={task.currentStreak > 0 ? "flame num" : "flame flame-cold num"}>
+                  {task.currentStreak} day{task.currentStreak === 1 ? "" : "s"} running
                 </span>
                 {task.platform?.lastSyncedAt && (
-                  <>
-                    <span className="dot">·</span>
-                    <span>synced {formatWhen(task.platform.lastSyncedAt)}</span>
-                  </>
+                  <span className="task-synced">
+                    synced {formatWhen(task.platform.lastSyncedAt)}
+                  </span>
                 )}
               </p>
             </>
@@ -145,10 +146,7 @@ export default function TaskRow({
                 disabled={syncing}
                 title={`Check ${task.platform?.label} for days you were active`}
               >
-                <span className={syncing ? "spin" : undefined} aria-hidden="true">
-                  ⟳
-                </span>
-                {syncing ? "Syncing…" : "Sync"}
+  {syncing ? "Syncing…" : `Sync ${task.platform?.label ?? ""}`}
               </button>
             )}
 

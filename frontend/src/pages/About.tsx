@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
 
 const PLATFORMS = [
-  { emoji: "🟩", label: "GitHub", detail: "Any day with contributions" },
-  { emoji: "🟧", label: "LeetCode", detail: "Any day you submitted a solution" },
-  { emoji: "🔵", label: "Codeforces", detail: "Any day you submitted, solved or not" },
-  { emoji: "♟️", label: "Chess.com", detail: "Any day you finished a game" },
-  { emoji: "🦉", label: "Duolingo", detail: "The days in your current streak" },
+  { label: "GitHub", detail: "Any day with contributions" },
+  { label: "LeetCode", detail: "Any day you submitted a solution" },
+  { label: "Codeforces", detail: "Any day you submitted, solved or not" },
+  { label: "Chess.com", detail: "Any day you finished a game" },
+  { label: "Duolingo", detail: "The days in your current streak" },
 ];
 
 export default function About() {
@@ -40,13 +40,8 @@ export default function About() {
         <div className="about-grid">
           {PLATFORMS.map((platform) => (
             <div key={platform.label} className="about-item">
-              <span className="about-emoji" aria-hidden="true">
-                {platform.emoji}
-              </span>
-              <div>
-                <strong>{platform.label}</strong>
-                <p className="muted small">{platform.detail}</p>
-              </div>
+              <strong>{platform.label}</strong>
+              <p className="muted small">{platform.detail}</p>
             </div>
           ))}
         </div>

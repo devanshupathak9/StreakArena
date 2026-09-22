@@ -27,7 +27,6 @@ function Attachment({ message, groupId }: { message: GroupMessage; groupId: stri
 
   return (
     <a href={href} className="chat-file" target="_blank" rel="noreferrer">
-      <span aria-hidden="true">📎</span>
       <span className="chat-file-name">{message.file.name}</span>
       <span className="muted small">{humanSize(message.file.size)}</span>
     </a>
@@ -169,7 +168,6 @@ export default function GroupChat({ groupId }: { groupId: string }) {
       <form className="chat-composer" onSubmit={handleSend}>
         {file && (
           <div className="chat-pending">
-            <span aria-hidden="true">📎</span>
             <span className="chat-file-name">{file.name}</span>
             <span className="muted small">{humanSize(file.size)}</span>
             <button type="button" className="link-button" onClick={clearFile} aria-label="Remove file">
@@ -195,8 +193,8 @@ export default function GroupChat({ groupId }: { groupId: string }) {
             accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/csv"
             onChange={handlePick}
           />
-          <label htmlFor="chat-file" className="button button-secondary chat-attach" title="Attach a file">
-            <span aria-hidden="true">📎</span>
+          <label htmlFor="chat-file" className="button button-secondary chat-attach">
+            Attach
           </label>
 
           <button type="submit" className="button" disabled={sending || (!draft.trim() && !file)}>

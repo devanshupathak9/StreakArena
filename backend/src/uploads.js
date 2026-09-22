@@ -7,7 +7,11 @@ import fs from "node:fs";
 import path from "node:path";
 import multer from "multer";
 
-export const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "/app/uploads";
+// The container sets UPLOAD_DIR to the mounted volume. The default is relative so a
+// plain `npm run dev` on a host doesn't die trying to mkdir an absolute container path.
+export const UPLOAD_DIR = process.env.UPLOAD_DIR
+  ? path.resolve(process.env.UPLOAD_DIR)
+  : path.resolve(process.cwd(), "uploads");
 export const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 // A conservative allow-list: things a browser can render or download safely. No
@@ -22,7 +26,11 @@ const ALLOWED = new Set([
   "text/csv",
 ]);
 
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+try {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+} catch (error) {
+  throw new Error(`Can't create the upload directory at ${UPLOAD_DIR}: ${error.message}`);
+}
 
 const storage = multer.diskStorage({
   destination: (req, file, done) => done(null, UPLOAD_DIR),

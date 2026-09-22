@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { api, type Dashboard as DashboardData, type SyncResult } from "../lib/api";
-import { useAuth } from "../context/AuthContext";
+import { useAppData } from "../context/AppData";
 import Heatmap from "../components/Heatmap";
 import TaskForm from "../components/TaskForm";
 import TaskRow from "../components/TaskRow";
+import OwedToday from "../components/OwedToday";
 import Toasts, { type Toast } from "../components/Toasts";
 
 /** Flip one day locally so the tile responds instantly; the refetch confirms it. */
@@ -25,23 +26,24 @@ function applyToggle(data: DashboardData, taskId: string, date: string, done: bo
   };
 }
 
-function greeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
+function todayLabel(date: string) {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  });
 }
 
 /** One line per platform, so a partial failure still reports what did work. */
 function describe(result: SyncResult) {
-  if (!result.ok) return `${result.label}: ${result.error}`;
+  if (!result.ok) return `${result.label} didn't sync. ${result.error}`;
   if (result.added === 0) return `${result.label} is already up to date`;
-  return `${result.label}: added ${result.added} day${result.added === 1 ? "" : "s"}`;
+  return `Synced ${result.added} day${result.added === 1 ? "" : "s"} from ${result.label}`;
 }
 
 export default function Dashboard() {
-  const { user } = useAuth();
-  const [data, setData] = useState<DashboardData | null>(null);
+  const { dashboard: data, reloadDashboard, reloadGroups, setDashboard } = useAppData();
   const [error, setError] = useState("");
   const [syncing, setSyncing] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -63,19 +65,16 @@ export default function Dashboard() {
 
   const load = useCallback(async () => {
     try {
-      setData(await api.dashboard(90));
+      // Group ranks and the sidebar's today block move with the same actions.
+      await Promise.all([reloadDashboard(), reloadGroups()]);
     } catch (err) {
       setError((err as Error).message);
     }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  }, [reloadDashboard, reloadGroups]);
 
   async function handleToggle(taskId: string, date: string, wasDone: boolean) {
     setError("");
-    setData((current) => (current ? applyToggle(current, taskId, date, !wasDone) : current));
+    setDashboard((current) => applyToggle(current, taskId, date, !wasDone));
     try {
       await (wasDone ? api.uncomplete(taskId, date) : api.complete(taskId, date));
     } catch (err) {
@@ -158,14 +157,8 @@ export default function Dashboard() {
     <div className="stack">
       <div className="page-head">
         <div>
-          <h1>
-            {greeting()}, {user?.username}
-          </h1>
-          <p className="muted">
-            {data.tasks.length === 0
-              ? "Add your first daily task to get started."
-              : `${doneToday} of ${data.tasks.length} done today.`}
-          </p>
+          <h1 className="day-title">{todayLabel(data.today)}</h1>
+          <p className="muted">Everything you are keeping alive today</p>
         </div>
 
         {syncable && (
@@ -175,41 +168,52 @@ export default function Dashboard() {
             onClick={() => void handleSync(null)}
             disabled={syncing !== null}
           >
-            <span className={syncing === "all" ? "spin" : undefined} aria-hidden="true">
-              ⟳
-            </span>
-            {syncing === "all" ? "Syncing…" : "Sync all"}
+            {syncing === "all" ? "Syncing all…" : "Sync all"}
           </button>
         )}
       </div>
 
       {error && <p className="error">{error}</p>}
 
+      <OwedToday
+        tasks={data.tasks}
+        syncing={syncing}
+        onToggle={(taskId, done) => handleToggle(taskId, data.today, done)}
+        onSync={(id) => void handleSync(id)}
+      />
+
       {data.tasks.length > 0 && (
-        <div className="stat-grid">
-          <div className="stat-card">
-            <span className="stat-value stat-value-flame">🔥 {bestStreak}</span>
-            <span className="stat-label">best running streak</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-value">
-              {doneToday} / {data.tasks.length}
+        <section className="standing">
+          <div className="streak-block">
+            <span className="streak-display">{bestStreak}</span>
+            <span className="streak-caption">
+              day{bestStreak === 1 ? "" : "s"} — longest run you have going
             </span>
-            <span className="stat-label">done today</span>
           </div>
-          <div className="stat-card">
-            <span className="stat-value">{verified}</span>
-            <span className="stat-label">days verified by platforms</span>
-          </div>
-        </div>
+
+          <dl className="standing-figures">
+            <div>
+              <dt>Done today</dt>
+              <dd className="num">
+                {doneToday} of {data.tasks.length}
+              </dd>
+            </div>
+            <div>
+              <dt>Verified days</dt>
+              <dd className="num">{verified}</dd>
+            </div>
+          </dl>
+        </section>
       )}
 
       <Heatmap days={data.heatmap} today={data.today} />
 
       {data.tasks.length === 0 ? (
-        <p className="empty">No tasks yet — a streak starts with day one.</p>
+        <p className="empty">
+          Nothing tracked yet. Add a task below — tag it with a platform and it proves itself.
+        </p>
       ) : (
-        <div className="stack">
+        <div className="task-list">
           {data.tasks.map((task) => (
             <TaskRow
               key={task.id}

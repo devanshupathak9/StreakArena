@@ -134,14 +134,16 @@ export default function GroupDetail() {
 
       {error && <p className="error">{error}</p>}
 
-      <section className="card">
+      <section className="board-section">
         <div className="card-head">
-          <h2>Leaderboard</h2>
+          <h2>Standings</h2>
           <p className="muted small">Streak per challenge, in each member's own timezone</p>
         </div>
 
         {challenges.length === 0 ? (
-          <p className="empty">No challenges yet — add the first one below.</p>
+          <p className="empty">
+            No challenges yet. Add one below and everyone in the group starts racing it.
+          </p>
         ) : (
           <div className="table-wrap">
             <table className="board">
@@ -152,7 +154,6 @@ export default function GroupDetail() {
                   {challenges.map((challenge) => (
                     <th key={challenge.id} className="board-num">
                       <span title={challenge.title}>
-                        {challenge.platform ? `${challenge.platform.emoji} ` : ""}
                         {challenge.title}
                       </span>
                     </th>
@@ -231,7 +232,7 @@ export default function GroupDetail() {
             <option value="">No platform</option>
             {platforms.map((option) => (
               <option key={option.id} value={option.id}>
-                {option.emoji} {option.label}
+                {option.label}
               </option>
             ))}
           </select>
@@ -247,7 +248,6 @@ export default function GroupDetail() {
                 <span>
                   {challenge.platform && (
                     <span className="badge">
-                      <span aria-hidden="true">{challenge.platform.emoji}</span>{" "}
                       {challenge.platform.label}
                     </span>
                   )}{" "}

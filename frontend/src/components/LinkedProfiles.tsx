@@ -89,9 +89,7 @@ export default function LinkedProfiles() {
               className={`profile-row${profile ? " profile-row-linked" : ""}`}
               onSubmit={(event) => handleSave(event, platform.id)}
             >
-              <span className="profile-label">
-                <span aria-hidden="true">{platform.emoji}</span> {platform.label}
-              </span>
+              <span className="profile-label">{platform.label}</span>
 
               <input
                 value={draft}

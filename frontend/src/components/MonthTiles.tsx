@@ -78,7 +78,7 @@ export default function MonthTiles({ tiles, today, readOnly = false, onToggle }:
         </span>
       </div>
 
-      <div className="month-grid" role="grid">
+      <div className="month-grid" role="grid" aria-label={`${monthLabel(key)} activity`}>
         {WEEKDAYS.map((label, i) => (
           <span key={i} className="month-weekday" aria-hidden="true">
             {label}
@@ -90,15 +90,23 @@ export default function MonthTiles({ tiles, today, readOnly = false, onToggle }:
         ))}
 
         {days.map((tile) => {
-          const className = `tile month-day${tile.done ? " tile-done" : ""}${
-            tile.date === today ? " tile-today" : ""
-          }`;
+          const state = tile.done ? (tile.verified ? " tile-verified" : " tile-self") : "";
+          const className = `tile month-day${state}${tile.date === today ? " tile-today" : ""}`;
           const number = Number(tile.date.slice(8));
-          const label = `${formatDay(tile.date)} — ${tile.done ? "done" : "not done"}`;
+          // Spelled out for screen readers: the source matters as much as the tick.
+          const label = `${formatDay(tile.date)}: ${
+            tile.done ? (tile.verified ? "verified" : "self-reported") : "nothing recorded"
+          }`;
 
           if (readOnly) {
             return (
-              <span key={tile.date} className={`${className} tile-static`} title={label}>
+              <span
+                key={tile.date}
+                className={`${className} tile-static`}
+                role="gridcell"
+                aria-label={label}
+                title={label}
+              >
                 {number}
               </span>
             );

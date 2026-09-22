@@ -8,11 +8,11 @@ type Props = { onCreate: (title: string, platform: string | null) => Promise<voi
  * worth a streak has an API, and reading a book is the obvious example.
  */
 const PRESETS = [
-  { emoji: "📖", title: "Read 20 pages", platform: null },
-  { emoji: "🏋️", title: "Workout", platform: null },
-  { emoji: "🧘", title: "Meditate", platform: null },
-  { emoji: "🟩", title: "Ship a commit", platform: "github" },
-  { emoji: "🟧", title: "One LeetCode problem", platform: "leetcode" },
+  { title: "Read 20 pages", platform: null },
+  { title: "Workout", platform: null },
+  { title: "Meditate", platform: null },
+  { title: "Ship a commit", platform: "github" },
+  { title: "One LeetCode problem", platform: "leetcode" },
 ];
 
 export default function TaskForm({ onCreate }: Props) {
@@ -69,7 +69,7 @@ export default function TaskForm({ onCreate }: Props) {
           <option value="">Manual</option>
           {platforms.map((option) => (
             <option key={option.id} value={option.id}>
-              {option.emoji} {option.label}
+              {option.label}
             </option>
           ))}
         </select>
@@ -88,7 +88,7 @@ export default function TaskForm({ onCreate }: Props) {
             disabled={saving}
             onClick={() => void submit(preset.title, preset.platform)}
           >
-            <span aria-hidden="true">{preset.emoji}</span> {preset.title}
+            {preset.title}
           </button>
         ))}
       </div>
