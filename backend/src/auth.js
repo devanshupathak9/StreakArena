@@ -3,6 +3,14 @@ import jwt from "jsonwebtoken";
 import { prisma } from "./db.js";
 
 const COOKIE_NAME = "sa_token";
+
+// A `secure` cookie is dropped by the browser over plain HTTP, which would look
+// like "login does nothing". Production defaults to secure; a deployment that is
+// still on http:// sets COOKIE_SECURE=false explicitly.
+const COOKIE_SECURE =
+  process.env.COOKIE_SECURE === undefined
+    ? process.env.NODE_ENV === "production"
+    : process.env.COOKIE_SECURE === "true";
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -23,7 +31,7 @@ export function setAuthCookie(res, userId) {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: COOKIE_SECURE,
     maxAge: MAX_AGE_MS,
   });
 }
@@ -63,5 +71,9 @@ export function publicUser(user) {
     username: user.username,
     timezone: user.timezone,
     createdAt: user.createdAt,
+    displayName: user.displayName ?? null,
+    bio: user.bio ?? null,
+    location: user.location ?? null,
+    avatarUrl: user.avatarUrl ?? null,
   };
 }

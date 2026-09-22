@@ -4,9 +4,82 @@ export type User = {
   username: string;
   timezone: string;
   createdAt: string;
+  displayName: string | null;
+  bio: string | null;
+  location: string | null;
+  avatarUrl: string | null;
+};
+
+/** Every profile field is optional, so an update sends only what changed. */
+export type ProfileInput = {
+  username?: string;
+  timezone?: string;
+  displayName?: string;
+  bio?: string;
+  location?: string;
+  avatarUrl?: string;
 };
 
 export type Tile = { date: string; done: boolean };
+
+export type GlobalRow = {
+  userId: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  isYou: boolean;
+  taskCount: number;
+  currentStreak: number;
+  longestStreak: number;
+  activeDays: number;
+  verifiedDays: number;
+};
+
+export type GlobalBoard = {
+  totals: { members: number; tasks: number; days: number; verified: number };
+  board: GlobalRow[];
+  yourRank: number | null;
+};
+
+/** One of the sites a task can be attached to, as listed by GET /platforms. */
+export type Platform = {
+  id: string;
+  label: string;
+  emoji: string;
+  placeholder: string;
+  hint: string;
+};
+
+/** A handle you've linked. */
+export type LinkedProfile = {
+  platform: string;
+  label: string;
+  emoji: string;
+  handle: string;
+  url: string | null;
+  lastSyncedAt: string | null;
+  lastSyncError: string | null;
+};
+
+/** What one platform's sync did, reported per platform so one failure isn't fatal. */
+export type SyncResult = {
+  platform: string;
+  label: string;
+  ok: boolean;
+  added: number;
+  activeDays?: number;
+  error: string | null;
+};
+
+/** A task's platform tag. `url` is null until you link that handle in Profile. */
+export type TaskPlatform = {
+  id: string;
+  label: string;
+  emoji: string;
+  handle: string | null;
+  url: string | null;
+  lastSyncedAt: string | null;
+};
 
 export type TaskSummary = {
   id: string;
@@ -16,6 +89,8 @@ export type TaskSummary = {
   longestStreak: number;
   totalDays: number;
   doneToday: boolean;
+  syncedDays: number;
+  platform: TaskPlatform | null;
   tiles: Tile[];
 };
 
@@ -25,7 +100,49 @@ export type Dashboard = {
   today: string;
   timezone: string;
   tasks: TaskSummary[];
+  profiles: LinkedProfile[];
   heatmap: HeatmapDay[];
+};
+
+export type GroupSummary = {
+  id: string;
+  name: string;
+  inviteCode: string;
+  isOwner: boolean;
+  memberCount: number;
+  challengeCount: number;
+};
+
+export type GroupChallenge = {
+  id: string;
+  title: string;
+  platform: { id: string; label: string; emoji: string } | null;
+};
+
+export type StandingEntry = {
+  challengeId: string;
+  joined: boolean;
+  currentStreak: number;
+  longestStreak: number;
+  totalDays: number;
+  doneToday: boolean;
+};
+
+export type Standing = {
+  userId: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  isYou: boolean;
+  score: number;
+  doneToday: number;
+  challenges: StandingEntry[];
+};
+
+export type GroupDetail = {
+  group: { id: string; name: string; inviteCode: string; isOwner: boolean };
+  challenges: GroupChallenge[];
+  standings: Standing[];
 };
 
 export class ApiError extends Error {
@@ -70,7 +187,7 @@ export const api = {
 
   logout: () => post("/auth/logout"),
 
-  updateProfile: (input: { username?: string; timezone?: string }) =>
+  updateProfile: (input: ProfileInput) =>
     request<{ user: User }>("/auth/me", {
       method: "PATCH",
       body: JSON.stringify(input),
@@ -78,11 +195,58 @@ export const api = {
 
   dashboard: (days = 30) => request<Dashboard>(`/dashboard?days=${days}`),
 
-  createTask: (title: string) => post("/tasks", { title }),
+  createTask: (title: string, platform: string | null) => post("/tasks", { title, platform }),
+
+  platforms: () => request<{ platforms: Platform[] }>("/platforms").then((r) => r.platforms),
+
+  profiles: () => request<{ profiles: LinkedProfile[] }>("/profiles").then((r) => r.profiles),
+
+  linkProfile: (platform: string, handle: string) =>
+    request<{ profile: LinkedProfile }>(`/profiles/${platform}`, {
+      method: "PUT",
+      body: JSON.stringify({ handle }),
+    }).then((r) => r.profile),
+
+  unlinkProfile: (platform: string) =>
+    request<{ ok: boolean }>(`/profiles/${platform}`, { method: "DELETE" }),
 
   deleteTask: (id: string) => request<{ ok: boolean }>(`/tasks/${id}`, { method: "DELETE" }),
 
   complete: (id: string, date: string) => post(`/tasks/${id}/complete`, { date }),
+
+  global: () => request<GlobalBoard>("/global"),
+
+  groups: () => request<{ groups: GroupSummary[] }>("/groups").then((r) => r.groups),
+
+  createGroup: (name: string) =>
+    request<{ group: { id: string; name: string; inviteCode: string } }>("/groups", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }).then((r) => r.group),
+
+  joinGroup: (code: string) =>
+    request<{ group: { id: string; name: string }; alreadyMember?: boolean }>("/groups/join", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+
+  group: (id: string) => request<GroupDetail>(`/groups/${id}`),
+
+  createChallenge: (groupId: string, title: string, platform: string | null) =>
+    post(`/groups/${groupId}/tasks`, { title, platform }),
+
+  deleteChallenge: (groupId: string, challengeId: string) =>
+    request<{ ok: boolean }>(`/groups/${groupId}/tasks/${challengeId}`, { method: "DELETE" }),
+
+  leaveGroup: (id: string) => post(`/groups/${id}/leave`),
+
+  deleteGroup: (id: string) => request<{ ok: boolean }>(`/groups/${id}`, { method: "DELETE" }),
+
+  syncAll: () =>
+    request<{ results: SyncResult[]; message?: string }>("/sync", { method: "POST" }),
+
+  syncTask: (id: string) =>
+    request<{ results: SyncResult[]; message?: string }>(`/tasks/${id}/sync`, { method: "POST" }),
 
   uncomplete: (id: string, date: string) =>
     request<{ ok: boolean }>(`/tasks/${id}/complete/${date}`, { method: "DELETE" }),

@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { prisma } from "../db.js";
 import { loadUser, requireAuth } from "../auth.js";
+import { getPlatform, isPlatformId, publicAccount } from "../platforms.js";
+import { canSync, fetchActiveDays } from "../sync.js";
 import {
   addDays,
   currentStreak,
@@ -15,6 +17,25 @@ import {
 
 export const tasksRouter = Router();
 
+/**
+ * What the dashboard shows next to a task's title. `url` is null when the task is
+ * tagged with a platform the user hasn't linked a handle for yet — the UI turns that
+ * into a nudge rather than a dead link.
+ */
+function taskPlatform(id, linked) {
+  const platform = id && getPlatform(id);
+  if (!platform) return null;
+  const account = linked.get(id);
+  return {
+    id: platform.id,
+    label: platform.label,
+    emoji: platform.emoji,
+    handle: account?.handle ?? null,
+    url: account?.url ?? null,
+    lastSyncedAt: account?.lastSyncedAt ?? null,
+  };
+}
+
 const HEATMAP_DAYS = 90;
 const MAX_TILE_DAYS = 90;
 
@@ -27,11 +48,17 @@ tasksRouter.get("/dashboard", async (req, res) => {
   const { timezone } = req.user;
   const today = todayInTz(timezone);
 
-  const tasks = await prisma.task.findMany({
-    where: { userId: req.user.id },
-    orderBy: { createdAt: "asc" },
-    include: { completions: { select: { localDate: true } } },
-  });
+  const [tasks, accounts] = await Promise.all([
+    prisma.task.findMany({
+      where: { userId: req.user.id },
+      orderBy: { createdAt: "asc" },
+        include: { completions: { select: { localDate: true, source: true } } },
+    }),
+    prisma.platformAccount.findMany({ where: { userId: req.user.id }, orderBy: { createdAt: "asc" } }),
+  ]);
+
+  const profiles = accounts.map(publicAccount);
+  const linked = new Map(profiles.map((profile) => [profile.platform, profile]));
 
   const tileWindow = lastNDays(today, tileDays);
   const doneByDate = new Map();
@@ -55,6 +82,8 @@ tasksRouter.get("/dashboard", async (req, res) => {
         currentStreak: currentStreak(dates, today),
         longestStreak: longestStreak(dates),
         totalDays: done.size,
+        syncedDays: task.completions.filter((c) => c.source === "synced").length,
+        platform: taskPlatform(task.platform, linked),
         doneToday: done.has(today),
         tiles: tileWindow.map((date) => ({ date, done: done.has(date) })),
       },
@@ -69,7 +98,7 @@ tasksRouter.get("/dashboard", async (req, res) => {
     total: summaries.filter((entry) => entry.activeFrom <= date).length,
   }));
 
-  res.json({ today, timezone, tasks: summaries.map((entry) => entry.task), heatmap });
+  res.json({ today, timezone, profiles, tasks: summaries.map((entry) => entry.task), heatmap });
 });
 
 tasksRouter.post("/tasks", async (req, res) => {
@@ -77,8 +106,12 @@ tasksRouter.post("/tasks", async (req, res) => {
   if (!title) return res.status(400).json({ error: "Give the task a name" });
   if (title.length > 80) return res.status(400).json({ error: "Keep the name under 80 characters" });
 
-  const task = await prisma.task.create({ data: { userId: req.user.id, title } });
-  res.status(201).json({ task: { id: task.id, title: task.title } });
+  // The platform is just a tag: the task works whether or not that handle is linked yet.
+  const platform = req.body?.platform ? String(req.body.platform) : null;
+  if (platform && !isPlatformId(platform)) return res.status(400).json({ error: "Unknown platform" });
+
+  const task = await prisma.task.create({ data: { userId: req.user.id, title, platform } });
+  res.status(201).json({ task: { id: task.id, title: task.title, platform: task.platform } });
 });
 
 tasksRouter.delete("/tasks/:id", async (req, res) => {
@@ -127,4 +160,100 @@ tasksRouter.delete("/tasks/:id/complete/:date", async (req, res) => {
 
   await prisma.taskCompletion.deleteMany({ where: { taskId: task.id, localDate: toDbDate(date) } });
   res.json({ ok: true, date });
+});
+
+
+/**
+ * Ask each linked platform which days this handle was active, and fill those days in.
+ *
+ * Additive only: a day you ticked yourself is never touched, and a day the platform
+ * no longer reports is left alone rather than revoked — a sync can add to your record
+ * but not quietly rewrite it. Platforms are fetched once each, not once per task, and
+ * one platform failing doesn't stop the others.
+ */
+async function runSync(user, taskFilter = null) {
+  const today = todayInTz(user.timezone);
+  const since = addDays(today, -(HEATMAP_DAYS - 1));
+
+  const [tasks, accounts] = await Promise.all([
+    prisma.task.findMany({
+      where: { userId: user.id, platform: { not: null }, ...(taskFilter ?? {}) },
+      include: { completions: { select: { localDate: true } } },
+    }),
+    prisma.platformAccount.findMany({ where: { userId: user.id } }),
+  ]);
+
+  const handles = new Map(accounts.map((account) => [account.platform, account.handle]));
+  const wanted = [...new Set(tasks.map((task) => task.platform))];
+  const results = [];
+
+  for (const platform of wanted) {
+    const meta = getPlatform(platform);
+    const label = meta?.label ?? platform;
+    const handle = handles.get(platform);
+
+    if (!handle) {
+      results.push({ platform, label, ok: false, added: 0, error: `Link your ${label} handle first` });
+      continue;
+    }
+    if (!canSync(platform)) {
+      results.push({ platform, label, ok: false, added: 0, error: `${label} can't be synced yet` });
+      continue;
+    }
+
+    try {
+      const active = await fetchActiveDays(platform, handle, since, today, user.timezone);
+      let added = 0;
+
+      for (const task of tasks.filter((t) => t.platform === platform)) {
+        const already = new Set(task.completions.map((c) => fromDbDate(c.localDate)));
+        const missing = [...active].filter((date) => !already.has(date));
+        if (!missing.length) continue;
+
+        // skipDuplicates covers the race where the same day arrives twice.
+        const { count } = await prisma.taskCompletion.createMany({
+          data: missing.map((date) => ({ taskId: task.id, localDate: toDbDate(date), source: "synced" })),
+          skipDuplicates: true,
+        });
+        added += count;
+      }
+
+      await prisma.platformAccount.updateMany({
+        where: { userId: user.id, platform },
+        data: { lastSyncedAt: new Date(), lastSyncError: null },
+      });
+      results.push({ platform, label, ok: true, added, activeDays: active.size, error: null });
+    } catch (error) {
+      // An unofficial endpoint changing shape is a normal Tuesday, so it's reported
+      // per platform and remembered, not thrown.
+      const message = error.message ?? "Sync failed";
+      await prisma.platformAccount.updateMany({
+        where: { userId: user.id, platform },
+        data: { lastSyncedAt: new Date(), lastSyncError: message },
+      });
+      results.push({ platform, label, ok: false, added: 0, error: message });
+    }
+  }
+
+  return results;
+}
+
+tasksRouter.post("/sync", async (req, res) => {
+  const results = await runSync(req.user);
+  if (!results.length) {
+    return res.json({ results, message: "No tasks are tagged with a platform yet" });
+  }
+  res.json({ results });
+});
+
+tasksRouter.post("/tasks/:id/sync", async (req, res) => {
+  const task = await prisma.task.findFirst({
+    where: { id: req.params.id, userId: req.user.id },
+    select: { id: true, platform: true },
+  });
+  if (!task) return res.status(404).json({ error: "Task not found" });
+  if (!task.platform) return res.status(400).json({ error: "This task isn't tagged with a platform" });
+
+  const results = await runSync(req.user, { id: task.id });
+  res.json({ results });
 });

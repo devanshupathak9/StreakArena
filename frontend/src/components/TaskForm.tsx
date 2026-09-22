@@ -1,8 +1,18 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { api, type Platform } from "../lib/api";
 
-export default function TaskForm({ onCreate }: { onCreate: (title: string) => Promise<void> }) {
+type Props = { onCreate: (title: string, platform: string | null) => Promise<void> };
+
+export default function TaskForm({ onCreate }: Props) {
   const [title, setTitle] = useState("");
+  const [platform, setPlatform] = useState("");
+  const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // Tagging is optional, so a failed catalog fetch just means a title-only form.
+  useEffect(() => {
+    api.platforms().then(setPlatforms).catch(() => setPlatforms([]));
+  }, []);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -11,8 +21,9 @@ export default function TaskForm({ onCreate }: { onCreate: (title: string) => Pr
 
     setSaving(true);
     try {
-      await onCreate(trimmed);
+      await onCreate(trimmed, platform || null);
       setTitle("");
+      setPlatform("");
     } finally {
       setSaving(false);
     }
@@ -23,10 +34,24 @@ export default function TaskForm({ onCreate }: { onCreate: (title: string) => Pr
       <input
         value={title}
         onChange={(event) => setTitle(event.target.value)}
-        placeholder="Add a daily task — e.g. Morning run"
+        placeholder="Add a daily task — e.g. Solve one LeetCode problem"
         maxLength={80}
         aria-label="New task"
       />
+
+      <select
+        value={platform}
+        onChange={(event) => setPlatform(event.target.value)}
+        aria-label="Platform (optional)"
+      >
+        <option value="">No platform</option>
+        {platforms.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.emoji} {option.label}
+          </option>
+        ))}
+      </select>
+
       <button type="submit" className="button" disabled={saving || !title.trim()}>
         Add task
       </button>

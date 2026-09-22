@@ -8,7 +8,8 @@ services:
       POSTGRES_PASSWORD: streak
       POSTGRES_DB: streakarena
     ports:
-      - "5433:5432"
+      # Host-only, so the database isn't reachable from the internet.
+      - "127.0.0.1:5433:5432"
     volumes:
       - streakarena-data:/var/lib/postgresql/data
     healthcheck:
@@ -16,6 +17,23 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  app:
+    build: .
+    container_name: streakarena-app
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://streak:streak@db:5432/streakarena
+      # Falls back to a dev-only secret so `docker compose up` works out of the box.
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me-before-you-use-this-for-real}
+      # This deployment is plain http://, and a secure cookie would be dropped.
+      COOKIE_SECURE: "false"
+      PORT: 4000
+    ports:
+      - "8080:4000"
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   streakarena-data:

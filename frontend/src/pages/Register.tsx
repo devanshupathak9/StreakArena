@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import AuthLayout from "../components/AuthLayout";
 import { useAuth } from "../context/AuthContext";
 
 const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -26,7 +27,7 @@ export default function Register() {
   }
 
   return (
-    <div className="card auth-card">
+    <AuthLayout>
       <h1>Start your streak</h1>
       <p className="muted">Track daily tasks and watch the tiles fill up.</p>
 
@@ -80,6 +81,6 @@ export default function Register() {
       <p className="muted">
         Already have an account? <Link to="/login">Log in</Link>
       </p>
-    </div>
+    </AuthLayout>
   );
 }

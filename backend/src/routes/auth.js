@@ -14,6 +14,25 @@ import { isValidTimezone } from "../streak.js";
 export const authRouter = Router();
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const LIMITS = { displayName: 50, bio: 160, location: 60, avatarUrl: 300 };
+
+/**
+ * An avatar is rendered straight into an <img>, so the scheme is checked rather than
+ * trusted — "javascript:" and "data:" have no business in a src we hand to everyone
+ * who can see this profile.
+ */
+function avatarProblem(value) {
+  if (value.length > LIMITS.avatarUrl) return `Keep the image URL under ${LIMITS.avatarUrl} characters`;
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return "That doesn't look like a URL";
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return "Use an http(s) image URL";
+  return null;
+}
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
 authRouter.post("/register", async (req, res) => {
@@ -84,6 +103,27 @@ authRouter.patch("/me", requireAuth, loadUser, async (req, res) => {
       const taken = await prisma.user.findUnique({ where: { username } });
       if (taken) return res.status(409).json({ error: "That username is already taken" });
       data.username = username;
+    }
+  }
+
+  // Free-text profile fields: trimmed, length-capped, and blanked back to null.
+  for (const field of ["displayName", "bio", "location"]) {
+    if (req.body?.[field] === undefined) continue;
+    const value = String(req.body[field]).trim();
+    if (value.length > LIMITS[field]) {
+      return res.status(400).json({ error: `Keep ${field === "displayName" ? "your name" : field} under ${LIMITS[field]} characters` });
+    }
+    data[field] = value || null;
+  }
+
+  if (req.body?.avatarUrl !== undefined) {
+    const value = String(req.body.avatarUrl).trim();
+    if (!value) {
+      data.avatarUrl = null;
+    } else {
+      const problem = avatarProblem(value);
+      if (problem) return res.status(400).json({ error: problem });
+      data.avatarUrl = value;
     }
   }
 

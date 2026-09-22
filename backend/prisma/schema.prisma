@@ -15,19 +15,98 @@ model User {
   timezone     String   @default("UTC")
   createdAt    DateTime @default(now())
 
+  // The public face of an account. All optional: an account works with none of it.
+  displayName String?
+  bio         String?
+  location    String?
+  avatarUrl   String?
+
+  tasks            Task[]
+  platformAccounts PlatformAccount[]
+  groupsCreated    Group[]           @relation("GroupsCreated")
+  memberships      GroupMember[]
+}
+
+// A group of friends competing on the same daily challenges.
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  inviteCode  String   @unique
+  createdById String
+  createdAt   DateTime @default(now())
+
+  createdBy User          @relation("GroupsCreated", fields: [createdById], references: [id], onDelete: Cascade)
+  members   GroupMember[]
+  tasks     GroupTask[]
+}
+
+model GroupMember {
+  id       String   @id @default(cuid())
+  groupId  String
+  userId   String
+  joinedAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([userId])
+}
+
+// A shared challenge. Each member tracks it through their own Task, so streaks,
+// tiles and platform sync all keep working exactly as they do for a solo task —
+// the group only decides what everyone is racing on.
+model GroupTask {
+  id        String   @id @default(cuid())
+  groupId   String
+  title     String
+  platform  String?
+  createdAt DateTime @default(now())
+
+  group Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
   tasks Task[]
+
+  @@index([groupId])
+}
+
+// A handle on an external site — the link between a task and where you actually do it.
+// No tokens, no scraping (yet): this is what makes a task one click from your profile.
+model PlatformAccount {
+  id        String   @id @default(cuid())
+  userId    String
+  platform  String
+  handle    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Sync bookkeeping: what the last check found, so the UI can say when it ran
+  // and why it failed without re-running it.
+  lastSyncedAt DateTime?
+  lastSyncError String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
 }
 
 model Task {
   id        String   @id @default(cuid())
   userId    String
   title     String
+  platform  String?
   createdAt DateTime @default(now())
 
+  // Set when this task is one member's copy of a group challenge. Detaching it
+  // (leaving the group, or the challenge being removed) keeps the task and its
+  // history as an ordinary personal task rather than deleting someone's streak.
+  groupTaskId String?
+
   user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupTask   GroupTask?       @relation(fields: [groupTaskId], references: [id], onDelete: SetNull)
   completions TaskCompletion[]
 
   @@index([userId])
+  @@index([groupTaskId])
 }
 
 model TaskCompletion {
@@ -35,6 +114,10 @@ model TaskCompletion {
   taskId    String
   localDate DateTime @db.Date
   createdAt DateTime @default(now())
+
+  // "manual" when you ticked it, "synced" when the platform confirmed it. A sync
+  // never overwrites a manual day, so your own record is always the one that wins.
+  source String @default("manual")
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 

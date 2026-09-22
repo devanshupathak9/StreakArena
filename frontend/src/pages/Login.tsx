@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import AuthLayout from "../components/AuthLayout";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
@@ -23,7 +24,7 @@ export default function Login() {
   }
 
   return (
-    <div className="card auth-card">
+    <AuthLayout>
       <h1>Welcome back</h1>
       <p className="muted">Pick up your streak where you left off.</p>
 
@@ -59,6 +60,6 @@ export default function Login() {
       <p className="muted">
         New here? <Link to="/register">Create an account</Link>
       </p>
-    </div>
+    </AuthLayout>
   );
 }
