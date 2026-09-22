@@ -139,6 +139,18 @@ export type Standing = {
   challenges: StandingEntry[];
 };
 
+export type GroupMessage = {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: {
+    userId: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+  };
+};
+
 export type GroupDetail = {
   group: { id: string; name: string; inviteCode: string; isOwner: boolean };
   challenges: GroupChallenge[];
@@ -237,6 +249,17 @@ export const api = {
 
   deleteChallenge: (groupId: string, challengeId: string) =>
     request<{ ok: boolean }>(`/groups/${groupId}/tasks/${challengeId}`, { method: "DELETE" }),
+
+  messages: (groupId: string, after?: string) =>
+    request<{ messages: GroupMessage[] }>(
+      `/groups/${groupId}/messages${after ? `?after=${after}` : ""}`,
+    ).then((r) => r.messages),
+
+  sendMessage: (groupId: string, body: string) =>
+    request<{ message: GroupMessage }>(`/groups/${groupId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    }).then((r) => r.message),
 
   leaveGroup: (id: string) => post(`/groups/${id}/leave`),
 

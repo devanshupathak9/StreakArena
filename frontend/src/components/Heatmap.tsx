@@ -1,14 +1,22 @@
 import type { HeatmapDay } from "../lib/api";
 import { formatDay, weekdayIndex } from "../lib/dates";
 
-/** 0 = nothing done, 4 = everything done. */
+/**
+ * Intensity by how much you did that day, the way a contribution graph reads:
+ * more completions, darker square. A day where everything was done is always the
+ * darkest step, so a perfect day looks perfect whether you keep one task or six.
+ */
 function level(day: HeatmapDay) {
-  if (day.total === 0 || day.completed === 0) return 0;
-  const ratio = day.completed / day.total;
-  if (ratio >= 1) return 4;
-  if (ratio >= 0.66) return 3;
-  if (ratio >= 0.33) return 2;
+  if (day.completed === 0) return 0;
+  if (day.total > 0 && day.completed >= day.total) return 4;
+  if (day.completed >= 3) return 3;
+  if (day.completed === 2) return 2;
   return 1;
+}
+
+function summary(day: HeatmapDay) {
+  const label = day.completed === 1 ? "1 task" : `${day.completed} tasks`;
+  return `${formatDay(day.date)} — ${day.completed === 0 ? "nothing" : label} of ${day.total}`;
 }
 
 export default function Heatmap({ days, today }: { days: HeatmapDay[]; today: string }) {
@@ -19,13 +27,27 @@ export default function Heatmap({ days, today }: { days: HeatmapDay[]; today: st
     ...Array<null>(weekdayIndex(days[0].date)).fill(null),
     ...days,
   ];
+
   const activeDays = days.filter((day) => day.completed > 0).length;
+  const perfectDays = days.filter((day) => day.total > 0 && day.completed >= day.total).length;
 
   return (
     <section className="card heatmap-card">
       <div className="card-head">
-        <h2>Last 90 days</h2>
-        <p className="muted">{activeDays} active days</p>
+        <div>
+          <h2>Last 90 days</h2>
+          <p className="muted small">
+            {activeDays} active · {perfectDays} perfect
+          </p>
+        </div>
+
+        <div className="heatmap-legend">
+          <span className="muted small">Less</span>
+          {[0, 1, 2, 3, 4].map((n) => (
+            <div key={n} className={`cell cell-${n}`} />
+          ))}
+          <span className="muted small">More</span>
+        </div>
       </div>
 
       <div className="heatmap-wrap">
@@ -41,21 +63,13 @@ export default function Heatmap({ days, today }: { days: HeatmapDay[]; today: st
               <div
                 key={day.date}
                 className={`cell cell-${level(day)}${day.date === today ? " cell-today" : ""}`}
-                title={`${formatDay(day.date)} — ${day.completed}/${day.total} tasks`}
+                title={summary(day)}
               />
             ) : (
               <div key={`pad-${index}`} className="cell cell-empty" />
             ),
           )}
         </div>
-      </div>
-
-      <div className="heatmap-legend">
-        <span className="muted">Less</span>
-        {[0, 1, 2, 3, 4].map((n) => (
-          <div key={n} className={`cell cell-${n}`} />
-        ))}
-        <span className="muted">More</span>
       </div>
     </section>
   );

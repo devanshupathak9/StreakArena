@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, type GroupDetail as GroupData, type Platform } from "../lib/api";
 import Avatar from "../components/Avatar";
+import GroupChat from "../components/GroupChat";
 
 /** Medals for the top three, plain numbers after that. */
 const RANKS = ["🥇", "🥈", "🥉"];
@@ -264,6 +265,8 @@ export default function GroupDetail() {
           </div>
         )}
       </section>
+
+      <GroupChat groupId={id} />
 
       <p className="muted small">
         Group challenges show up on your dashboard like any other task — platform-backed ones fill

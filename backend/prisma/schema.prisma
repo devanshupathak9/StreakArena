@@ -25,6 +25,7 @@ model User {
   platformAccounts PlatformAccount[]
   groupsCreated    Group[]           @relation("GroupsCreated")
   memberships      GroupMember[]
+  messages         GroupMessage[]
 }
 
 // A group of friends competing on the same daily challenges.
@@ -35,9 +36,25 @@ model Group {
   createdById String
   createdAt   DateTime @default(now())
 
-  createdBy User          @relation("GroupsCreated", fields: [createdById], references: [id], onDelete: Cascade)
+  createdBy User           @relation("GroupsCreated", fields: [createdById], references: [id], onDelete: Cascade)
   members   GroupMember[]
   tasks     GroupTask[]
+  messages  GroupMessage[]
+}
+
+// Group chat. Messages belong to the group, not to a membership, so leaving doesn't
+// blank out half a conversation for everyone still reading it.
+model GroupMessage {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, createdAt])
 }
 
 model GroupMember {

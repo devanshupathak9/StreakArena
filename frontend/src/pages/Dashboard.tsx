@@ -194,6 +194,8 @@ export default function Dashboard() {
         </div>
       )}
 
+      <Heatmap days={data.heatmap} today={data.today} />
+
       {data.tasks.length === 0 ? (
         <p className="empty">No tasks yet — a streak starts with day one.</p>
       ) : (
@@ -213,8 +215,6 @@ export default function Dashboard() {
       )}
 
       <TaskForm onCreate={handleCreate} />
-
-      <Heatmap days={data.heatmap} today={data.today} />
 
       <Toasts toasts={toasts} onDismiss={dismiss} />
     </div>

@@ -122,6 +122,10 @@ working inside a group with no special cases: the group only decides what everyo
 Joining backfills a personal task for every challenge already there, so a late joiner starts
 immediately rather than on the next one created.
 
+Each group has a **chat**, polled on a cursor so an idle window costs one empty array rather
+than the whole history. Messages belong to the group rather than to a membership, so someone
+leaving doesn't blank out half a conversation for everyone still reading it.
+
 The leaderboard ranks members by their **combined live streaks** — today's form, not lifetime
 totals — and each member's streak is measured against today in *their own* timezone, so nobody
 looks behind just because they're east of everyone else.
@@ -164,6 +168,10 @@ working inside a group with no special cases: the group only decides what everyo
 Joining backfills a personal task for every challenge already there, so a late joiner starts
 immediately rather than on the next one created.
 
+Each group has a **chat**, polled on a cursor so an idle window costs one empty array rather
+than the whole history. Messages belong to the group rather than to a membership, so someone
+leaving doesn't blank out half a conversation for everyone still reading it.
+
 The leaderboard ranks members by their **combined live streaks** — today's form, not lifetime
 totals — and each member's streak is measured against today in *their own* timezone, so nobody
 looks behind just because they're east of everyone else.
@@ -185,6 +193,9 @@ bare date — so day boundaries follow you, and every streak query stays plain d
 - Your current streak counts back from today. If today isn't marked yet it counts back from
   yesterday instead, so a streak doesn't look broken at 9am before you've done the task.
 - Past days are editable for 90 days back by clicking a tile; future days are rejected.
+- The 90-day grid shades by how much you did that day — more completions, darker square — and a
+  day where everything was done is always the darkest step, so a perfect day looks perfect
+  whether you keep one task or six.
 - Sync uses that same 90-day window, so it can only fill days you could have ticked yourself.
 
 ## Project layout
@@ -235,6 +246,8 @@ frontend/src/
 | GET | `/api/groups/:id` | members, challenges and the leaderboard |
 | POST | `/api/groups/:id/tasks` | `title`, optional `platform` — copies to every member |
 | DELETE | `/api/groups/:id/tasks/:taskId` | detaches everyone's copy, keeps their history |
+| GET | `/api/groups/:id/messages` | group chat, oldest first; `?after=<id>` for polling |
+| POST | `/api/groups/:id/messages` | `body` |
 | POST | `/api/groups/:id/leave` | |
 | DELETE | `/api/groups/:id` | creator only |
 | POST | `/api/sync` | check every linked platform and fill in the days it confirms |

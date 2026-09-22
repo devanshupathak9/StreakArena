@@ -279,3 +279,77 @@ groupsRouter.delete("/groups/:id", async (req, res) => {
   await prisma.group.delete({ where: { id: group.id } });
   res.json({ ok: true });
 });
+
+
+const MESSAGE_LIMIT = 200;
+const MESSAGE_MAX = 1000;
+
+function publicMessage(message) {
+  return {
+    id: message.id,
+    body: message.body,
+    createdAt: message.createdAt,
+    author: {
+      userId: message.user.id,
+      username: message.user.username,
+      displayName: message.user.displayName ?? null,
+      avatarUrl: message.user.avatarUrl ?? null,
+    },
+  };
+}
+
+const MESSAGE_AUTHOR = {
+  user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+};
+
+/**
+ * The group's chat, oldest first.
+ *
+ * `after` makes this pollable: the client passes the id of the last message it has
+ * and gets only what arrived since, so an open chat isn't refetching the whole
+ * history every few seconds.
+ */
+groupsRouter.get("/groups/:id/messages", async (req, res) => {
+  const group = await requireMembership(req.params.id, req.user.id);
+  if (!group) return res.status(404).json({ error: "Group not found" });
+
+  let after = null;
+  if (req.query.after) {
+    const cursor = await prisma.groupMessage.findFirst({
+      where: { id: String(req.query.after), groupId: group.id },
+      select: { createdAt: true },
+    });
+    // An unknown cursor falls back to the full page rather than erroring — the
+    // message it named may simply have been in a group the user just switched from.
+    after = cursor?.createdAt ?? null;
+  }
+
+  const messages = await prisma.groupMessage.findMany({
+    where: { groupId: group.id, ...(after ? { createdAt: { gt: after } } : {}) },
+    orderBy: { createdAt: after ? "asc" : "desc" },
+    take: MESSAGE_LIMIT,
+    include: MESSAGE_AUTHOR,
+  });
+
+  // Without a cursor the newest are taken and then flipped, so the client always
+  // receives oldest-first regardless of which branch ran.
+  const ordered = after ? messages : messages.reverse();
+  res.json({ messages: ordered.map(publicMessage) });
+});
+
+groupsRouter.post("/groups/:id/messages", async (req, res) => {
+  const group = await requireMembership(req.params.id, req.user.id);
+  if (!group) return res.status(404).json({ error: "Group not found" });
+
+  const body = String(req.body?.body ?? "").trim();
+  if (!body) return res.status(400).json({ error: "Write something first" });
+  if (body.length > MESSAGE_MAX) {
+    return res.status(400).json({ error: `Keep it under ${MESSAGE_MAX} characters` });
+  }
+
+  const message = await prisma.groupMessage.create({
+    data: { groupId: group.id, userId: req.user.id, body },
+    include: MESSAGE_AUTHOR,
+  });
+  res.status(201).json({ message: publicMessage(message) });
+});

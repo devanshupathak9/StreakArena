@@ -36,10 +36,10 @@
   /* Streak tiles: four steps from empty to fully done. Green, the way a contribution
      graph reads — it also keeps the grid calm when most of it is filled. */
   --tile-0: #1b202b;
-  --tile-1: #0e4429;
-  --tile-2: #006d32;
-  --tile-3: #26a641;
-  --tile-4: #39d353;
+  --tile-1: #0b3d24;
+  --tile-2: #14663a;
+  --tile-3: #23994f;
+  --tile-4: #3ad35a;
 
   --step--1: 0.8125rem;
   --step-0: 0.9375rem;
@@ -414,6 +414,97 @@ label select {
   padding: var(--space-3);
   box-shadow: var(--shadow-sm);
 }
+
+/* Inside a card the form needs no chrome of its own. */
+.task-form-bare {
+  background: none;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+.composer .task-form-bare input,
+.composer .task-form-bare select {
+  background: var(--bg-subtle);
+  border-color: var(--border);
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.preset {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 5px var(--space-3);
+  border-radius: var(--radius-full);
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--step--1);
+  cursor: pointer;
+  transition: border-color var(--transition), color var(--transition),
+    background var(--transition);
+}
+.preset:hover:not(:disabled) {
+  border-style: solid;
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-wash);
+}
+.preset:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- Group chat ---------- */
+
+.chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.chat-empty {
+  padding: var(--space-5) 0;
+  text-align: center;
+}
+
+.chat-message {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.chat-body {
+  min-width: 0;
+}
+
+.chat-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: 2px;
+}
+
+.chat-text {
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+.chat-composer {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+}
 .task-form input {
   flex: 1;
   border-color: transparent;
@@ -573,16 +664,16 @@ a.badge:hover {
 
 .heatmap {
   display: grid;
-  grid-template-rows: repeat(7, 13px);
+  grid-template-rows: repeat(7, 16px);
   grid-auto-flow: column;
-  grid-auto-columns: 13px;
-  gap: 3px;
+  grid-auto-columns: 16px;
+  gap: 4px;
 }
 
 .heatmap-weekdays {
   display: grid;
-  grid-template-rows: repeat(7, 13px);
-  gap: 3px;
+  grid-template-rows: repeat(7, 16px);
+  gap: 4px;
   font-size: 10px;
   color: var(--muted);
   padding-right: var(--space-1);
@@ -598,10 +689,14 @@ a.badge:hover {
 }
 
 .cell {
-  width: 13px;
-  height: 13px;
-  border-radius: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
   background: var(--tile-0);
+  transition: transform var(--transition);
+}
+.heatmap .cell:hover {
+  transform: scale(1.25);
 }
 .cell-empty {
   background: transparent;
@@ -627,8 +722,15 @@ a.badge:hover {
   align-items: center;
   gap: var(--space-1);
   justify-content: flex-end;
-  margin-top: var(--space-3);
   font-size: var(--step--1);
+}
+.heatmap-legend .cell {
+  width: 12px;
+  height: 12px;
+}
+
+.heatmap-card .card-head {
+  align-items: flex-end;
 }
 
 /* ---------- Linked profiles ---------- */

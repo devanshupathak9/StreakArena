@@ -62,6 +62,8 @@ instead run `cd backend && npm run dev` against the same database (it's publishe
 - **Groups can't cost anyone a streak.** Leaving, removing a challenge, or deleting the group all
   detach the task (`groupTaskId` → null) and leave the history with its owner. `SetNull`, never
   `Cascade`.
+- **Not every streak has an API.** The task composer leads with manual presets (reading, workout,
+  meditation) on purpose — platform tasks are the flagship, not the only citizen.
 - **Colour carries meaning.** Orange is *only* a live streak (flame, today's outline). Interactive
   elements are indigo, tiles are a green contribution scale. The user explicitly rejected an
   orange-everywhere UI — don't reintroduce it.
@@ -82,7 +84,10 @@ There is **no test suite and no browser in the agent session.** So:
 - **No GitHub token yet.** Sync falls back to the public events API: ~90 days, 60 req/hr per IP
   shared by everyone. Adding `GITHUB_TOKEN` to `.env` upgrades it to the real contribution
   calendar automatically — the code path already exists.
-- **Nothing is committed.** A large amount of work is sitting in the working tree.
+- **Work lands on `master` and is pushed** to `github.com:devanshupathak9/StreakArena`. Commits
+  are feature-sized with bodies explaining *why*; the shared files (`index.js`, `schema.prisma`,
+  `api.ts`, `styles.css`) change for almost every feature, so slicing finer than that produces
+  commits that don't build.
 - **Global ranking reads every user's completions** and folds them in JS. Fine now; the fix at
   scale is a nightly snapshot table, not a cleverer query.
 - LeetCode and Duolingo use undocumented endpoints. Expect them to break; every adapter is
