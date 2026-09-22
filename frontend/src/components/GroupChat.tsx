@@ -4,10 +4,41 @@ import Avatar from "./Avatar";
 import { formatWhen } from "../lib/dates";
 
 const POLL_MS = 6000;
+const MAX_BYTES = 5 * 1024 * 1024;
+
+function humanSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** Images are shown; everything else is a download link with its size. */
+function Attachment({ message, groupId }: { message: GroupMessage; groupId: string }) {
+  if (!message.file) return null;
+  const href = api.attachmentUrl(groupId, message.id);
+
+  if (message.file.type.startsWith("image/")) {
+    return (
+      <a href={href} className="chat-image" target="_blank" rel="noreferrer">
+        <img src={href} alt={message.file.name} loading="lazy" />
+      </a>
+    );
+  }
+
+  return (
+    <a href={href} className="chat-file" target="_blank" rel="noreferrer">
+      <span aria-hidden="true">📎</span>
+      <span className="chat-file-name">{message.file.name}</span>
+      <span className="muted small">{humanSize(message.file.size)}</span>
+    </a>
+  );
+}
 
 export default function GroupChat({ groupId }: { groupId: string }) {
   const [messages, setMessages] = useState<GroupMessage[] | null>(null);
   const [draft, setDraft] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -61,18 +92,37 @@ export default function GroupChat({ groupId }: { groupId: string }) {
     }
   }, [messages]);
 
+  function clearFile() {
+    setFile(null);
+    // The input keeps its value after a send, so picking the same file again
+    // would fire no change event without this.
+    if (fileInput.current) fileInput.current.value = "";
+  }
+
+  function handlePick(event: React.ChangeEvent<HTMLInputElement>) {
+    const picked = event.target.files?.[0] ?? null;
+    if (picked && picked.size > MAX_BYTES) {
+      setError("Files must be under 5 MB");
+      clearFile();
+      return;
+    }
+    setError("");
+    setFile(picked);
+  }
+
   async function handleSend(event: FormEvent) {
     event.preventDefault();
     const body = draft.trim();
-    if (!body || sending) return;
+    if ((!body && !file) || sending) return;
 
     setError("");
     setSending(true);
     try {
-      const message = await api.sendMessage(groupId, body);
+      const message = await api.sendMessage(groupId, body, file);
       pinned.current = true;
       merge([message]);
       setDraft("");
+      clearFile();
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -108,24 +158,51 @@ export default function GroupChat({ groupId }: { groupId: string }) {
                   <strong>{message.author.displayName || message.author.username}</strong>
                   <span className="muted small">{formatWhen(message.createdAt)}</span>
                 </p>
-                <p className="chat-text">{message.body}</p>
+                {message.body && <p className="chat-text">{message.body}</p>}
+                <Attachment message={message} groupId={groupId} />
               </div>
             </div>
           ))
         )}
       </div>
 
-      <form className="task-form task-form-bare chat-composer" onSubmit={handleSend}>
-        <input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Message the group…"
-          maxLength={1000}
-          aria-label="Message"
-        />
-        <button type="submit" className="button" disabled={sending || !draft.trim()}>
-          Send
-        </button>
+      <form className="chat-composer" onSubmit={handleSend}>
+        {file && (
+          <div className="chat-pending">
+            <span aria-hidden="true">📎</span>
+            <span className="chat-file-name">{file.name}</span>
+            <span className="muted small">{humanSize(file.size)}</span>
+            <button type="button" className="link-button" onClick={clearFile} aria-label="Remove file">
+              ✕
+            </button>
+          </div>
+        )}
+
+        <div className="task-form task-form-bare">
+          <input
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Message the group…"
+            maxLength={1000}
+            aria-label="Message"
+          />
+
+          <input
+            ref={fileInput}
+            type="file"
+            className="visually-hidden"
+            id="chat-file"
+            accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/csv"
+            onChange={handlePick}
+          />
+          <label htmlFor="chat-file" className="button button-secondary chat-attach" title="Attach a file">
+            <span aria-hidden="true">📎</span>
+          </label>
+
+          <button type="submit" className="button" disabled={sending || (!draft.trim() && !file)}>
+            {sending ? "Sending…" : "Send"}
+          </button>
+        </div>
       </form>
     </section>
   );

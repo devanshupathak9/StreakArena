@@ -84,6 +84,7 @@ export type TaskPlatform = {
 export type TaskSummary = {
   id: string;
   title: string;
+  description: string | null;
   startedOn: string;
   currentStreak: number;
   longestStreak: number;
@@ -139,10 +140,13 @@ export type Standing = {
   challenges: StandingEntry[];
 };
 
+export type MessageFile = { name: string; type: string; size: number };
+
 export type GroupMessage = {
   id: string;
   body: string;
   createdAt: string;
+  file: MessageFile | null;
   author: {
     userId: string;
     username: string;
@@ -168,7 +172,10 @@ export class ApiError extends Error {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`/api${path}`, {
     credentials: "include",
-    headers: options.body ? { "Content-Type": "application/json" } : undefined,
+    headers:
+      options.body && !(options.body instanceof FormData)
+        ? { "Content-Type": "application/json" }
+        : undefined,
     ...options,
   });
 
@@ -208,6 +215,9 @@ export const api = {
   dashboard: (days = 30) => request<Dashboard>(`/dashboard?days=${days}`),
 
   createTask: (title: string, platform: string | null) => post("/tasks", { title, platform }),
+
+  updateTask: (id: string, input: { title?: string; description?: string }) =>
+    request<{ ok: boolean }>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
 
   platforms: () => request<{ platforms: Platform[] }>("/platforms").then((r) => r.platforms),
 
@@ -255,11 +265,26 @@ export const api = {
       `/groups/${groupId}/messages${after ? `?after=${after}` : ""}`,
     ).then((r) => r.messages),
 
-  sendMessage: (groupId: string, body: string) =>
-    request<{ message: GroupMessage }>(`/groups/${groupId}/messages`, {
+  // Multipart when there's a file: the fetch wrapper only sets a JSON content-type
+  // when it's given a body it serialised itself, so FormData sets its own boundary.
+  sendMessage: (groupId: string, body: string, file?: File | null) => {
+    if (!file) {
+      return request<{ message: GroupMessage }>(`/groups/${groupId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ body }),
+      }).then((r) => r.message);
+    }
+    const form = new FormData();
+    form.append("body", body);
+    form.append("file", file);
+    return request<{ message: GroupMessage }>(`/groups/${groupId}/messages`, {
       method: "POST",
-      body: JSON.stringify({ body }),
-    }).then((r) => r.message),
+      body: form,
+    }).then((r) => r.message);
+  },
+
+  attachmentUrl: (groupId: string, messageId: string) =>
+    `/api/groups/${groupId}/messages/${messageId}/file`,
 
   leaveGroup: (id: string) => post(`/groups/${id}/leave`),
 

@@ -37,6 +37,7 @@ function taskPlatform(id, linked) {
 }
 
 const HEATMAP_DAYS = 90;
+const DESCRIPTION_MAX = 200;
 const MAX_TILE_DAYS = 90;
 
 tasksRouter.use(requireAuth, loadUser);
@@ -78,6 +79,7 @@ tasksRouter.get("/dashboard", async (req, res) => {
       task: {
         id: task.id,
         title: task.title,
+        description: task.description ?? null,
         startedOn,
         currentStreak: currentStreak(dates, today),
         longestStreak: longestStreak(dates),
@@ -110,8 +112,46 @@ tasksRouter.post("/tasks", async (req, res) => {
   const platform = req.body?.platform ? String(req.body.platform) : null;
   if (platform && !isPlatformId(platform)) return res.status(400).json({ error: "Unknown platform" });
 
-  const task = await prisma.task.create({ data: { userId: req.user.id, title, platform } });
+  const description = String(req.body?.description ?? "").trim();
+  if (description.length > DESCRIPTION_MAX) {
+    return res.status(400).json({ error: `Keep the description under ${DESCRIPTION_MAX} characters` });
+  }
+
+  const task = await prisma.task.create({
+    data: { userId: req.user.id, title, platform, description: description || null },
+  });
   res.status(201).json({ task: { id: task.id, title: task.title, platform: task.platform } });
+});
+
+/** Rename a task or change its note. The platform stays put — it decides how the
+ *  task is proved, and swapping it would strand the history it already collected. */
+tasksRouter.patch("/tasks/:id", async (req, res) => {
+  const data = {};
+
+  if (req.body?.title !== undefined) {
+    const title = String(req.body.title).trim();
+    if (!title) return res.status(400).json({ error: "Give the task a name" });
+    if (title.length > 80) return res.status(400).json({ error: "Keep the name under 80 characters" });
+    data.title = title;
+  }
+
+  if (req.body?.description !== undefined) {
+    const description = String(req.body.description).trim();
+    if (description.length > DESCRIPTION_MAX) {
+      return res.status(400).json({ error: `Keep the description under ${DESCRIPTION_MAX} characters` });
+    }
+    data.description = description || null;
+  }
+
+  if (!Object.keys(data).length) return res.status(400).json({ error: "Nothing to change" });
+
+  // Scoped by userId, so another user's task simply matches nothing.
+  const { count } = await prisma.task.updateMany({
+    where: { id: req.params.id, userId: req.user.id },
+    data,
+  });
+  if (!count) return res.status(404).json({ error: "Task not found" });
+  res.json({ ok: true });
 });
 
 tasksRouter.delete("/tasks/:id", async (req, res) => {

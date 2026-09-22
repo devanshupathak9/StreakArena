@@ -63,7 +63,7 @@ export default function Dashboard() {
 
   const load = useCallback(async () => {
     try {
-      setData(await api.dashboard());
+      setData(await api.dashboard(90));
     } catch (err) {
       setError((err as Error).message);
     }
@@ -89,6 +89,16 @@ export default function Dashboard() {
     setError("");
     try {
       await api.createTask(title, platform);
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function handleEdit(taskId: string, title: string, description: string) {
+    setError("");
+    try {
+      await api.updateTask(taskId, { title, description });
       await load();
     } catch (err) {
       setError((err as Error).message);
@@ -209,6 +219,7 @@ export default function Dashboard() {
               onToggle={handleToggle}
               onDelete={handleDelete}
               onSync={(id) => void handleSync(id)}
+              onEdit={handleEdit}
             />
           ))}
         </div>

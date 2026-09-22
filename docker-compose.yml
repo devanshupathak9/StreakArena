@@ -29,11 +29,16 @@ services:
       # This deployment is plain http://, and a secure cookie would be dropped.
       COOKIE_SECURE: "false"
       PORT: 4000
+      UPLOAD_DIR: /app/uploads
     ports:
       - "8080:4000"
+    volumes:
+      # Chat attachments live here, so they survive `up --build`.
+      - streakarena-uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
 
 volumes:
   streakarena-data:
+  streakarena-uploads:

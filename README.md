@@ -122,6 +122,12 @@ working inside a group with no special cases: the group only decides what everyo
 Joining backfills a personal task for every challenge already there, so a late joiner starts
 immediately rather than on the next one created.
 
+Chat takes **attachments** — images, PDFs and text files up to 5 MB. The bytes go to a mounted
+volume rather than into Postgres, the stored filename is a random UUID so a client-supplied name
+can't decide where anything lands, and every download goes through a route that re-checks group
+membership and forces `Content-Disposition: attachment`. Nothing a member uploads can execute in
+another member's origin.
+
 Each group has a **chat**, polled on a cursor so an idle window costs one empty array rather
 than the whole history. Messages belong to the group rather than to a membership, so someone
 leaving doesn't blank out half a conversation for everyone still reading it.
@@ -167,6 +173,12 @@ tracks it through their own ordinary `Task`, which is why streaks, tiles and pla
 working inside a group with no special cases: the group only decides what everyone is racing on.
 Joining backfills a personal task for every challenge already there, so a late joiner starts
 immediately rather than on the next one created.
+
+Chat takes **attachments** — images, PDFs and text files up to 5 MB. The bytes go to a mounted
+volume rather than into Postgres, the stored filename is a random UUID so a client-supplied name
+can't decide where anything lands, and every download goes through a route that re-checks group
+membership and forces `Content-Disposition: attachment`. Nothing a member uploads can execute in
+another member's origin.
 
 Each group has a **chat**, polled on a cursor so an idle window costs one empty array rather
 than the whole history. Messages belong to the group rather than to a membership, so someone
@@ -238,7 +250,8 @@ frontend/src/
 | PUT | `/api/profiles/:platform` | `handle` — link or re-link; accepts a pasted profile URL |
 | DELETE | `/api/profiles/:platform` | unlink |
 | GET | `/api/dashboard?days=30` | tasks + streaks + tiles + linked profiles + 90-day heatmap, in one call |
-| POST | `/api/tasks` | `title`, optional `platform` |
+| POST | `/api/tasks` | `title`, optional `description` and `platform` |
+| PATCH | `/api/tasks/:id` | `title`, `description` |
 | DELETE | `/api/tasks/:id` | also deletes its history |
 | GET | `/api/groups` | your groups |
 | POST | `/api/groups` | `name` — creates it and returns the invite code |
@@ -247,7 +260,8 @@ frontend/src/
 | POST | `/api/groups/:id/tasks` | `title`, optional `platform` — copies to every member |
 | DELETE | `/api/groups/:id/tasks/:taskId` | detaches everyone's copy, keeps their history |
 | GET | `/api/groups/:id/messages` | group chat, oldest first; `?after=<id>` for polling |
-| POST | `/api/groups/:id/messages` | `body` |
+| POST | `/api/groups/:id/messages` | `body`, optional `file` (multipart) |
+| GET | `/api/groups/:id/messages/:messageId/file` | download an attachment |
 | POST | `/api/groups/:id/leave` | |
 | DELETE | `/api/groups/:id` | creator only |
 | POST | `/api/sync` | check every linked platform and fill in the days it confirms |

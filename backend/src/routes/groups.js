@@ -3,6 +3,7 @@ import { prisma } from "../db.js";
 import { loadUser, requireAuth } from "../auth.js";
 import { getPlatform, isPlatformId } from "../platforms.js";
 import { currentStreak, fromDbDate, longestStreak, todayInTz } from "../streak.js";
+import { removeStored, resolveStored, upload, uploadErrorMessage } from "../uploads.js";
 
 export const groupsRouter = Router();
 
@@ -289,6 +290,11 @@ function publicMessage(message) {
     id: message.id,
     body: message.body,
     createdAt: message.createdAt,
+    // The stored path never leaves the server; the client asks for the file by
+    // message id and the route re-checks membership.
+    file: message.filePath
+      ? { name: message.fileName, type: message.fileType, size: message.fileSize }
+      : null,
     author: {
       userId: message.user.id,
       username: message.user.username,
@@ -337,19 +343,68 @@ groupsRouter.get("/groups/:id/messages", async (req, res) => {
   res.json({ messages: ordered.map(publicMessage) });
 });
 
-groupsRouter.post("/groups/:id/messages", async (req, res) => {
+/** Multipart when there's a file, plain JSON when there isn't — one endpoint either way. */
+const acceptAttachment = (req, res, next) =>
+  upload.single("file")(req, res, (error) =>
+    error ? res.status(400).json({ error: uploadErrorMessage(error) }) : next(),
+  );
+
+groupsRouter.post("/groups/:id/messages", acceptAttachment, async (req, res) => {
   const group = await requireMembership(req.params.id, req.user.id);
-  if (!group) return res.status(404).json({ error: "Group not found" });
+  if (!group) {
+    // The file arrived before membership could be checked, so it doesn't stay.
+    if (req.file) removeStored(req.file.filename);
+    return res.status(404).json({ error: "Group not found" });
+  }
 
   const body = String(req.body?.body ?? "").trim();
-  if (!body) return res.status(400).json({ error: "Write something first" });
+  if (!body && !req.file) return res.status(400).json({ error: "Write something first" });
   if (body.length > MESSAGE_MAX) {
+    if (req.file) removeStored(req.file.filename);
     return res.status(400).json({ error: `Keep it under ${MESSAGE_MAX} characters` });
   }
 
   const message = await prisma.groupMessage.create({
-    data: { groupId: group.id, userId: req.user.id, body },
+    data: {
+      groupId: group.id,
+      userId: req.user.id,
+      body,
+      ...(req.file
+        ? {
+            fileName: req.file.originalname.slice(0, 200),
+            fileType: req.file.mimetype,
+            fileSize: req.file.size,
+            filePath: req.file.filename,
+          }
+        : {}),
+    },
     include: MESSAGE_AUTHOR,
   });
   res.status(201).json({ message: publicMessage(message) });
+});
+
+/**
+ * Download an attachment. Membership is re-checked here rather than relying on the
+ * URL being unguessable, and the response is always sent as an attachment with the
+ * stored type — so nothing a member uploads can execute in another member's origin.
+ */
+groupsRouter.get("/groups/:id/messages/:messageId/file", async (req, res) => {
+  const group = await requireMembership(req.params.id, req.user.id);
+  if (!group) return res.status(404).json({ error: "Group not found" });
+
+  const message = await prisma.groupMessage.findFirst({
+    where: { id: req.params.messageId, groupId: group.id },
+    select: { fileName: true, fileType: true, filePath: true },
+  });
+  if (!message?.filePath) return res.status(404).json({ error: "No such file" });
+
+  const resolved = resolveStored(message.filePath);
+  if (!resolved) return res.status(404).json({ error: "No such file" });
+
+  res.type(message.fileType ?? "application/octet-stream");
+  res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.download(resolved, message.fileName ?? "attachment", (error) => {
+    if (error && !res.headersSent) res.status(404).json({ error: "No such file" });
+  });
 });

@@ -32,6 +32,10 @@ instead run `cd backend && npm run dev` against the same database (it's publishe
   own shell and kills it (exit 144). Find the PID first (`ss -tlnp | grep :4000`) and kill that.
 - **`COOKIE_SECURE=false` is load-bearing.** This deployment is plain HTTP; a `Secure` cookie is
   silently dropped by browsers and login looks like it does nothing.
+- **Chat attachments live in the `streakarena-uploads` volume, not the database.** Deleting a
+  message, group or user cascades the *rows* but leaves the blob on disk — there is no sweeper
+  yet. Never `rm /app/uploads/*` to tidy up: other people's files are in there. Delete the one
+  `filePath` you mean.
 - **The database volume outlives `docker compose down`.** Accounts from earlier sessions are still
   in there. Two of them (`devanshu`, `someone`) are the user's own test data — leave them alone.
 - **Prisma needs `openssl`** in the runtime image (already in the Dockerfile) and a `generate`
@@ -88,6 +92,8 @@ There is **no test suite and no browser in the agent session.** So:
   are feature-sized with bodies explaining *why*; the shared files (`index.js`, `schema.prisma`,
   `api.ts`, `styles.css`) change for almost every feature, so slicing finer than that produces
   commits that don't build.
+- **Orphaned attachments accumulate.** Rows cascade, files don't. A sweeper (delete blobs with no
+  matching `filePath`) is the fix when it matters.
 - **Global ranking reads every user's completions** and folds them in JS. Fine now; the fix at
   scale is a nightly snapshot table, not a cleverer query.
 - LeetCode and Duolingo use undocumented endpoints. Expect them to break; every adapter is
