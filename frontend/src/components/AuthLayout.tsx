@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import AuthPreview from "./AuthPreview";
 
 const POINTS = [
   {
@@ -24,9 +25,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     <div className="auth-shell">
       <section className="auth-pitch">
         <div className="auth-pitch-inner">
-          <span className="brand auth-brand">
-            <span aria-hidden="true">🔥</span> StreakArena
-          </span>
+          <span className="auth-brand">StreakArena</span>
 
           <h1 className="auth-headline">
             Every streak you're keeping,
@@ -38,6 +37,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             LeetCode keeps one. GitHub draws another in green squares. Duolingo nags you about a
             third. StreakArena holds all of them — and checks them for you.
           </p>
+
+          <AuthPreview />
 
           <ul className="auth-points">
             {POINTS.map((point) => (

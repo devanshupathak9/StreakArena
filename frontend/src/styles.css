@@ -1586,11 +1586,13 @@ a.badge:hover {
   color: var(--accent-text);
 }
 
-/* ---------- Signed-out split ---------- *//* ---------- Signed-out split ---------- */
+/* ---------- Signed-out split ---------- */
 
+/* Two panels that read as two panels: a step of surface between them and a hairline
+   rule, rather than a gradient between three near-identical blacks. */
 .auth-shell {
   display: grid;
-  grid-template-columns: 1.05fr 1fr;
+  grid-template-columns: 1.1fr 1fr;
   min-height: 100vh;
 }
 
@@ -1598,28 +1600,12 @@ a.badge:hover {
   display: flex;
   align-items: center;
   padding: var(--space-7) var(--space-6);
-  background: linear-gradient(150deg, var(--surface) 0%, var(--bg-subtle) 55%, var(--bg) 100%);
+  background: var(--surface);
   border-right: 1px solid var(--border);
-  position: relative;
-  overflow: hidden;
-}
-
-/* A warm bloom behind the pitch — the one place orange gets to be decorative. */
-.auth-pitch::after {
-  content: "";
-  position: absolute;
-  width: 420px;
-  height: 420px;
-  right: -140px;
-  top: -120px;
-  border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--flame) 22%, transparent), transparent 70%);
-  pointer-events: none;
 }
 
 .auth-pitch-inner {
-  position: relative;
-  max-width: 460px;
+  max-width: 470px;
   margin-left: auto;
   display: flex;
   flex-direction: column;
@@ -1627,53 +1613,100 @@ a.badge:hover {
 }
 
 .auth-brand {
+  font-family: var(--font-narrow);
   font-size: var(--step-1);
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--text);
 }
 
 .auth-headline {
-  font-size: clamp(1.9rem, 3.4vw, 2.6rem);
-  line-height: 1.15;
-  letter-spacing: -0.03em;
-  font-weight: 680;
+  font-family: var(--font-narrow);
+  font-size: clamp(2rem, 3.6vw, 2.9rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-weight: 700;
   margin: 0;
 }
 
 .auth-sub {
   color: var(--text-2);
-  max-width: 44ch;
+  max-width: 46ch;
+}
+
+/* The product's own artefact, doing the work a stock illustration would do badly. */
+.auth-preview {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* surface-2 steps away from the panel in both themes; bg-subtle is the same pure
+     white as the panel in light mode, which made this card disappear. */
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.auth-preview-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.auth-preview-streak {
+  font-family: var(--font-narrow);
+  font-size: var(--step-3);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--flame);
+}
+
+.auth-preview-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+.auth-preview-grid {
+  display: grid;
+  grid-template-rows: repeat(7, 12px);
+  grid-auto-flow: column;
+  grid-auto-columns: 12px;
+  gap: 3px;
+}
+.auth-preview-grid .cell {
+  width: 12px;
+  height: 12px;
+}
+
+.auth-preview figcaption {
+  font-size: var(--step--1);
+  color: var(--muted);
+  max-width: 46ch;
 }
 
 .auth-points {
   list-style: none;
   padding: 0;
-  margin: var(--space-3) 0 0;
+  margin: var(--space-2) 0 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 .auth-points li {
   display: flex;
-  gap: var(--space-3);
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 1px;
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--border-strong);
 }
 
 .auth-points strong {
-  display: block;
   font-size: var(--step-0);
-}
-
-.auth-point-emoji {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  flex-shrink: 0;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
 }
 
 .auth-point-text {
@@ -1682,7 +1715,7 @@ a.badge:hover {
 }
 
 .auth-footnote {
-  margin-top: var(--space-3);
+  margin-top: var(--space-2);
   color: var(--muted);
   font-size: var(--step--1);
 }
@@ -1692,6 +1725,7 @@ a.badge:hover {
   align-items: center;
   justify-content: center;
   padding: var(--space-6) var(--space-5);
+  background: var(--bg);
 }
 
 .auth-form-inner {
@@ -1700,6 +1734,10 @@ a.badge:hover {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+.auth-form-inner h1 {
+  font-family: var(--font-narrow);
 }
 
 .auth-form-inner form .button {
@@ -2074,9 +2112,29 @@ code {
   }
   .auth-pitch-inner {
     margin-left: 0;
+    max-width: none;
   }
-  .auth-points {
+  /* The claims are the first thing to go; the grid says it faster. */
+  .auth-points,
+  .auth-footnote {
     display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-pitch {
+    padding: var(--space-5) var(--space-4);
+  }
+  .auth-sub {
+    display: none;
+  }
+  .auth-preview-grid {
+    grid-template-rows: repeat(7, 10px);
+    grid-auto-columns: 10px;
+  }
+  .auth-preview-grid .cell {
+    width: 10px;
+    height: 10px;
   }
 }
 
