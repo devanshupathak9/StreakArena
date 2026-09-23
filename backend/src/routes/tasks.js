@@ -39,6 +39,7 @@ function taskPlatform(id, linked) {
 const HEATMAP_DAYS = 90;
 const DESCRIPTION_MAX = 200;
 const MAX_TILE_DAYS = 90;
+const RECENT_EVENTS = 12;
 
 tasksRouter.use(requireAuth, loadUser);
 
@@ -49,13 +50,26 @@ tasksRouter.get("/dashboard", async (req, res) => {
   const { timezone } = req.user;
   const today = todayInTz(timezone);
 
-  const [tasks, accounts] = await Promise.all([
+  const [tasks, accounts, latest] = await Promise.all([
     prisma.task.findMany({
       where: { userId: req.user.id },
       orderBy: { createdAt: "asc" },
         include: { completions: { select: { localDate: true, source: true } } },
     }),
     prisma.platformAccount.findMany({ where: { userId: req.user.id }, orderBy: { createdAt: "asc" } }),
+    // The activity feed wants real instants, not the bare local dates the tiles use —
+    // "2 hours ago" can't be recovered from a YYYY-MM-DD.
+    prisma.taskCompletion.findMany({
+      where: { task: { userId: req.user.id } },
+      orderBy: { createdAt: "desc" },
+      take: RECENT_EVENTS,
+      select: {
+        createdAt: true,
+        localDate: true,
+        source: true,
+        task: { select: { id: true, title: true, platform: true } },
+      },
+    }),
   ]);
 
   const profiles = accounts.map(publicAccount);
@@ -109,7 +123,23 @@ tasksRouter.get("/dashboard", async (req, res) => {
     total: summaries.filter((entry) => entry.activeFrom <= date).length,
   }));
 
-  res.json({ today, timezone, profiles, tasks: summaries.map((entry) => entry.task), heatmap });
+  const recent = latest.map((completion) => ({
+    taskId: completion.task.id,
+    title: completion.task.title,
+    platform: completion.task.platform ?? null,
+    source: completion.source,
+    localDate: fromDbDate(completion.localDate),
+    at: completion.createdAt.toISOString(),
+  }));
+
+  res.json({
+    today,
+    timezone,
+    profiles,
+    tasks: summaries.map((entry) => entry.task),
+    heatmap,
+    recent,
+  });
 });
 
 tasksRouter.post("/tasks", async (req, res) => {
