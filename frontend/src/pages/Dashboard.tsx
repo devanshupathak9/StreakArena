@@ -1,248 +1,90 @@
-import { useCallback, useState } from "react";
-import { api, type Dashboard as DashboardData, type SyncResult } from "../lib/api";
 import { useAppData } from "../context/AppData";
+import { useTaskActions } from "../hooks/useTaskActions";
+import ActivityFeed from "../components/ActivityFeed";
 import Heatmap from "../components/Heatmap";
-import TaskForm from "../components/TaskForm";
-import TaskRow from "../components/TaskRow";
-import OwedToday from "../components/OwedToday";
-import Toasts, { type Toast } from "../components/Toasts";
-
-/** Flip one day locally so the tile responds instantly; the refetch confirms it. */
-function applyToggle(data: DashboardData, taskId: string, date: string, done: boolean) {
-  return {
-    ...data,
-    tasks: data.tasks.map((task) =>
-      task.id === taskId
-        ? {
-            ...task,
-            doneToday: date === data.today ? done : task.doneToday,
-            tiles: task.tiles.map((tile) => (tile.date === date ? { ...tile, done } : tile)),
-          }
-        : task,
-    ),
-    heatmap: data.heatmap.map((day) =>
-      day.date === date ? { ...day, completed: day.completed + (done ? 1 : -1) } : day,
-    ),
-  };
-}
-
-function todayLabel(date: string) {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    timeZone: "UTC",
-  });
-}
-
-/** One line per platform, so a partial failure still reports what did work. */
-function describe(result: SyncResult) {
-  if (!result.ok) return `${result.label} didn't sync. ${result.error}`;
-  if (result.added === 0) return `${result.label} is already up to date`;
-  return `Synced ${result.added} day${result.added === 1 ? "" : "s"} from ${result.label}`;
-}
+import Hero from "../components/Hero";
+import QuoteTile from "../components/QuoteTile";
+import StatRow from "../components/StatRow";
+import TaskPanel from "../components/TaskPanel";
+import TodayProgress from "../components/TodayProgress";
+import Toasts from "../components/Toasts";
 
 export default function Dashboard() {
-  const { dashboard: data, reloadDashboard, reloadGroups, setDashboard } = useAppData();
-  const [error, setError] = useState("");
-  const [syncing, setSyncing] = useState<string | null>(null);
-  const [toasts, setToasts] = useState<Toast[]>([]);
-
-  const dismiss = useCallback((id: number) => {
-    setToasts((current) => current.filter((toast) => toast.id !== id));
-  }, []);
-
-  function report(results: SyncResult[]) {
-    setToasts((current) => [
-      ...current,
-      ...results.map((result, index) => ({
-        id: Date.now() + index,
-        ok: result.ok,
-        text: describe(result),
-      })),
-    ]);
-  }
-
-  const load = useCallback(async () => {
-    try {
-      // Group ranks and the sidebar's today block move with the same actions.
-      await Promise.all([reloadDashboard(), reloadGroups()]);
-    } catch (err) {
-      setError((err as Error).message);
-    }
-  }, [reloadDashboard, reloadGroups]);
-
-  async function handleToggle(taskId: string, date: string, wasDone: boolean) {
-    setError("");
-    setDashboard((current) => applyToggle(current, taskId, date, !wasDone));
-    try {
-      await (wasDone ? api.uncomplete(taskId, date) : api.complete(taskId, date));
-    } catch (err) {
-      setError((err as Error).message);
-    }
-    // Streaks are the server's call, so resync either way.
-    await load();
-  }
-
-  async function handleCreate(title: string, platform: string | null) {
-    setError("");
-    try {
-      await api.createTask(title, platform);
-      await load();
-    } catch (err) {
-      setError((err as Error).message);
-    }
-  }
-
-  async function handleEdit(taskId: string, title: string, description: string) {
-    setError("");
-    try {
-      await api.updateTask(taskId, { title, description });
-      await load();
-    } catch (err) {
-      setError((err as Error).message);
-    }
-  }
-
-  async function handleDelete(taskId: string) {
-    const task = data?.tasks.find((t) => t.id === taskId);
-    if (!window.confirm(`Delete "${task?.title}" and its whole history?`)) return;
-
-    setError("");
-    try {
-      await api.deleteTask(taskId);
-      await load();
-    } catch (err) {
-      setError((err as Error).message);
-    }
-  }
-
-  async function handleSync(taskId: string | null) {
-    setError("");
-    setSyncing(taskId ?? "all");
-    try {
-      const response = taskId ? await api.syncTask(taskId) : await api.syncAll();
-      if (response.results.length === 0) {
-        setToasts((current) => [
-          ...current,
-          { id: Date.now(), ok: false, text: response.message ?? "Nothing to sync yet" },
-        ]);
-      } else {
-        report(response.results);
-      }
-      await load();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setSyncing(null);
-    }
-  }
+  const { groups } = useAppData();
+  const {
+    dashboard: data,
+    error,
+    syncing,
+    toasts,
+    dismiss,
+    handleToggle,
+    handleCreate,
+    handleEdit,
+    handleDelete,
+    handleSync,
+  } = useTaskActions();
 
   if (!data) {
     return (
-      <div className="stack">
-        <div className="skeleton skeleton-row" style={{ height: 72 }} />
-        <div className="skeleton skeleton-row" />
-        <div className="skeleton skeleton-row" />
+      <div className="dashboard">
+        <div className="skeleton" style={{ height: 240, borderRadius: "var(--radius-lg)" }} />
+        <div className="skeleton" style={{ height: 104, borderRadius: "var(--radius-lg)" }} />
+        <div className="skeleton" style={{ height: 380, borderRadius: "var(--radius-lg)" }} />
       </div>
     );
   }
 
   const bestStreak = data.tasks.reduce((max, task) => Math.max(max, task.currentStreak), 0);
+  const totalStreakDays = data.tasks.reduce((sum, task) => sum + task.totalDays, 0);
   const doneToday = data.tasks.filter((task) => task.doneToday).length;
   const verified = data.tasks.reduce((sum, task) => sum + task.syncedDays, 0);
-  const syncable = data.tasks.some((task) => task.platform?.url);
+
+  // Your best placing across the groups you're in — the one worth showing.
+  const ranks = (groups ?? []).map((group) => group.yourRank).filter((r): r is number => r !== null);
+  const groupRank = ranks.length > 0 ? Math.min(...ranks) : null;
 
   return (
-    <div className="stack">
-      <div className="page-head">
-        <div>
-          <h1 className="day-title">{todayLabel(data.today)}</h1>
-          <p className="muted">Everything you are keeping alive today</p>
-        </div>
+    <div className="dashboard">
+      <Hero today={data.today} />
 
-        {syncable && (
-          <button
-            type="button"
-            className="button button-secondary"
-            onClick={() => void handleSync(null)}
-            disabled={syncing !== null}
-          >
-            {syncing === "all" ? "Syncing all…" : "Sync all"}
-          </button>
-        )}
-      </div>
+      <StatRow
+        totalStreakDays={totalStreakDays}
+        doneToday={doneToday}
+        taskCount={data.tasks.length}
+        verifiedDays={verified}
+        groupRank={groupRank}
+        bestStreak={bestStreak}
+      />
 
       {error && <p className="error">{error}</p>}
 
-      <OwedToday
-        tasks={data.tasks}
-        syncing={syncing}
-        onToggle={(taskId, done) => handleToggle(taskId, data.today, done)}
-        onSync={(id) => void handleSync(id)}
-      />
+      {/* "How consistent have I been?" and "what did I do today?" answer together,
+          so the two cards are one row and share a height. */}
+      <section className="analytics-row">
+        <Heatmap days={data.heatmap} today={data.today} />
+        {data.tasks.length > 0 && <TodayProgress tasks={data.tasks} />}
+      </section>
 
-      {data.tasks.length > 0 && (
-        <section className="standing">
-          <div className="streak-block">
-            <span className="streak-display">{bestStreak}</span>
-            <span className="streak-caption">
-              day{bestStreak === 1 ? "" : "s"} — longest run you have going
-            </span>
-          </div>
+      {/* A wider gap here: this is where the page turns from "how am I doing?"
+          to "what do I do now?". */}
+      <section className="tasks-row">
+        <TaskPanel
+          heading="Your active tasks"
+          tasks={data.tasks}
+          today={data.today}
+          syncing={syncing}
+          onToggle={handleToggle}
+          onDelete={handleDelete}
+          onSync={(id) => void handleSync(id)}
+          onEdit={handleEdit}
+          onCreate={handleCreate}
+        />
 
-          <dl className="standing-figures">
-            <div>
-              <dt>Done today</dt>
-              <dd className="num">
-                {doneToday} of {data.tasks.length}
-              </dd>
-            </div>
-            <div>
-              <dt>Verified days</dt>
-              <dd className="num">{verified}</dd>
-            </div>
-          </dl>
-        </section>
-      )}
+        <ActivityFeed recent={data.recent} groups={groups} bestStreak={bestStreak} />
+      </section>
 
-      <Heatmap days={data.heatmap} today={data.today} />
-
-      {/* Tasks are the detail under the headline grid; the composer sits beside them
-          rather than under them, so adding one doesn't mean scrolling past the lot. */}
-      <div className="dashboard-body">
-        <section className="board-section">
-          <div className="card-head">
-            <h2>Your tasks</h2>
-            <p className="muted small">Open one to see the month behind it</p>
-          </div>
-
-          {data.tasks.length === 0 ? (
-            <p className="empty">
-              Nothing tracked yet. Add a task — tag it with a platform and it proves itself.
-            </p>
-          ) : (
-            <div className="task-list">
-              {data.tasks.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  today={data.today}
-                  syncing={syncing === task.id || syncing === "all"}
-                  onToggle={handleToggle}
-                  onDelete={handleDelete}
-                  onSync={(id) => void handleSync(id)}
-                  onEdit={handleEdit}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <aside className="dashboard-aside">
-          <TaskForm onCreate={handleCreate} />
-        </aside>
-      </div>
+      {/* Below everything, where it can't interrupt the hierarchy. */}
+      <QuoteTile />
 
       <Toasts toasts={toasts} onDismiss={dismiss} />
     </div>

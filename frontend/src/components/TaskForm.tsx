@@ -1,7 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type Platform } from "../lib/api";
 
-type Props = { onCreate: (title: string, platform: string | null) => Promise<void> };
+type Props = {
+  onCreate: (title: string, platform: string | null) => Promise<void>;
+  onCancel?: () => void;
+};
 
 /**
  * One tap to a sensible task. The manual ones come first on purpose: not everything
@@ -15,7 +18,7 @@ const PRESETS = [
   { title: "One LeetCode problem", platform: "leetcode" },
 ];
 
-export default function TaskForm({ onCreate }: Props) {
+export default function TaskForm({ onCreate, onCancel }: Props) {
   const [title, setTitle] = useState("");
   const [platform, setPlatform] = useState("");
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -46,19 +49,15 @@ export default function TaskForm({ onCreate }: Props) {
   }
 
   return (
-    <section className="card composer">
-      <div className="card-head">
-        <h2>Add a task</h2>
-        <p className="muted small">Tag a platform to have it verified, or leave it manual</p>
-      </div>
-
-      <form className="task-form task-form-bare" onSubmit={handleSubmit}>
+    <div className="composer">
+      <form className="task-form" onSubmit={handleSubmit}>
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           placeholder="What are you doing every day?"
           maxLength={80}
           aria-label="New task"
+          autoFocus
         />
 
         <select
@@ -77,6 +76,11 @@ export default function TaskForm({ onCreate }: Props) {
         <button type="submit" className="button" disabled={saving || !title.trim()}>
           Add task
         </button>
+        {onCancel && (
+          <button type="button" className="button button-ghost" onClick={onCancel}>
+            Cancel
+          </button>
+        )}
       </form>
 
       <div className="presets">
@@ -92,6 +96,6 @@ export default function TaskForm({ onCreate }: Props) {
           </button>
         ))}
       </div>
-    </section>
+    </div>
   );
 }

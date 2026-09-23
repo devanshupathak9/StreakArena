@@ -1,14 +1,16 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import MobileTabBar from "./components/nav/MobileTabBar";
 import Sidebar from "./components/nav/Sidebar";
+import TopBar from "./components/nav/TopBar";
 import About from "./pages/About";
 import Dashboard from "./pages/Dashboard";
-import Global from "./pages/Global";
 import GroupDetail from "./pages/GroupDetail";
 import Groups from "./pages/Groups";
+import Leaderboard from "./pages/Leaderboard";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Register from "./pages/Register";
+import Tasks from "./pages/Tasks";
 import { AppDataProvider } from "./context/AppData";
 import { useAuth } from "./context/AuthContext";
 
@@ -33,12 +35,16 @@ export default function App() {
       <div className="shell">
         <Sidebar />
         <div className="shell-main">
+          <TopBar />
           <main className="container">
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/tasks" element={<Tasks />} />
               <Route path="/groups" element={<Groups />} />
               <Route path="/groups/:id" element={<GroupDetail />} />
-              <Route path="/global" element={<Global />} />
+              <Route path="/leaderboard" element={<Leaderboard />} />
+              {/* The board used to live at /global; keep old links working. */}
+              <Route path="/global" element={<Navigate to="/leaderboard" replace />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/about" element={<About />} />
               <Route path="*" element={<Navigate to="/" replace />} />

@@ -176,7 +176,7 @@ export default function GroupChat({ groupId }: { groupId: string }) {
           </div>
         )}
 
-        <div className="task-form task-form-bare">
+        <div className="task-form">
           <input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}

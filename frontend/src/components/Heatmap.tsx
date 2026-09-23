@@ -1,3 +1,4 @@
+import { useState, type CSSProperties } from "react";
 import type { HeatmapDay } from "../lib/api";
 import { formatDay, weekdayIndex } from "../lib/dates";
 
@@ -19,39 +20,76 @@ function summary(day: HeatmapDay) {
   return `${formatDay(day.date)} — ${day.completed === 0 ? "nothing" : label} of ${day.total}`;
 }
 
+/** Month letters sit over the column where that month's first day lands. */
+function monthMarks(days: HeatmapDay[], leadingPad: number) {
+  const marks: { key: string; label: string; column: number }[] = [];
+  let previous = "";
+  days.forEach((day, index) => {
+    const month = day.date.slice(0, 7);
+    if (month === previous) return;
+    previous = month;
+    const column = Math.floor((index + leadingPad) / 7) + 1;
+    if (marks.length > 0 && column - marks[marks.length - 1].column < 3) return;
+    marks.push({
+      key: month,
+      label: new Date(`${day.date}T00:00:00Z`).toLocaleDateString(undefined, {
+        month: "short",
+        timeZone: "UTC",
+      }),
+      column,
+    });
+  });
+  return marks;
+}
+
+const RANGES = [30, 90, 180] as const;
+
 export default function Heatmap({ days, today }: { days: HeatmapDay[]; today: string }) {
+  const [range, setRange] = useState<number>(90);
   if (days.length === 0) return null;
 
-  // Pad the first column so each row is a consistent weekday.
-  const cells: (HeatmapDay | null)[] = [
-    ...Array<null>(weekdayIndex(days[0].date)).fill(null),
-    ...days,
-  ];
-
-  const activeDays = days.filter((day) => day.completed > 0).length;
-  const perfectDays = days.filter((day) => day.total > 0 && day.completed >= day.total).length;
+  const shown = days.slice(Math.max(0, days.length - range));
+  const pad = weekdayIndex(shown[0].date);
+  const cells: (HeatmapDay | null)[] = [...Array<null>(pad).fill(null), ...shown];
+  const marks = monthMarks(shown, pad);
+  const columns = Math.ceil(cells.length / 7);
 
   return (
     <section className="card heatmap-card">
       <div className="card-head">
         <div>
-          <h2>Last 90 days</h2>
-          <p className="muted small">
-            {activeDays} active · {perfectDays} perfect
-          </p>
+          <h2>Activity heatmap</h2>
+          <p className="muted small">Your consistency over the last {range} days.</p>
         </div>
-
-        <div className="heatmap-legend">
-          <span className="muted small">Less</span>
-          {[0, 1, 2, 3, 4].map((n) => (
-            <div key={n} className={`cell cell-${n}`} />
+        <select
+          className="select-sm"
+          value={range}
+          onChange={(event) => setRange(Number(event.target.value))}
+          aria-label="Heatmap range"
+        >
+          {RANGES.map((option) => (
+            <option key={option} value={option}>
+              Last {option} days
+            </option>
           ))}
-          <span className="muted small">More</span>
-        </div>
+        </select>
       </div>
 
-      <div className="heatmap-wrap">
-        <div className="heatmap-weekdays">
+      {/* Months, weekday labels and cells share one grid, so a month letter stays
+          over its own column however wide the cells end up. */}
+      <div
+        className="heatmap-wrap"
+        style={{ "--cols": columns } as CSSProperties}
+      >
+        <div className="heatmap-months" aria-hidden="true">
+          {marks.map((mark) => (
+            <span key={mark.key} style={{ gridColumn: mark.column }}>
+              {mark.label}
+            </span>
+          ))}
+        </div>
+
+        <div className="heatmap-weekdays" aria-hidden="true">
           <span>Mon</span>
           <span>Wed</span>
           <span>Fri</span>
@@ -70,6 +108,14 @@ export default function Heatmap({ days, today }: { days: HeatmapDay[]; today: st
             ),
           )}
         </div>
+      </div>
+
+      <div className="heatmap-legend">
+        <span className="muted small">Less</span>
+        {[0, 1, 2, 3, 4].map((n) => (
+          <div key={n} className={`cell cell-${n}`} />
+        ))}
+        <span className="muted small">More</span>
       </div>
     </section>
   );

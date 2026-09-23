@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronsLeft, ChevronsRight, LayoutDashboard, Trophy } from "lucide-react";
+import {
+  BarChart3,
+  ChevronsLeft,
+  ChevronsRight,
+  Flame,
+  Home,
+  SquareCheck,
+  User,
+} from "lucide-react";
 import AccountRow from "./AccountRow";
 import GroupTree from "./GroupTree";
 import NavItem from "./NavItem";
-import TodayBlock from "./TodayBlock";
 
 const STORAGE_KEY = "sa.sidebar.collapsed";
 /** Below this the rail is the sensible default; the tab bar takes over lower still. */
@@ -51,10 +58,10 @@ export default function Sidebar() {
     <aside className={`sidebar${collapsed ? " sidebar-rail" : ""}`}>
       <div className="sidebar-top">
         <Link to="/" className="wordmark">
-          <span className="nav-label">StreakArena</span>
-          <span className="wordmark-short" aria-hidden="true">
-            SA
+          <span className="wordmark-flame" aria-hidden="true">
+            <Flame size={20} strokeWidth={2.2} />
           </span>
+          <span className="nav-label">StreakArena</span>
         </Link>
 
         <button
@@ -72,12 +79,12 @@ export default function Sidebar() {
         </button>
       </div>
 
-      <TodayBlock collapsed={collapsed} />
-
       <nav className="sidebar-nav" aria-label="Main">
-        <NavItem to="/" label="Dashboard" icon={LayoutDashboard} collapsed={collapsed} end />
+        <NavItem to="/" label="Dashboard" icon={Home} collapsed={collapsed} end />
+        <NavItem to="/tasks" label="Tasks" icon={SquareCheck} collapsed={collapsed} />
         <GroupTree collapsed={collapsed} />
-        <NavItem to="/global" label="Global" icon={Trophy} collapsed={collapsed} />
+        <NavItem to="/leaderboard" label="Leaderboard" icon={BarChart3} collapsed={collapsed} />
+        <NavItem to="/profile" label="Profile" icon={User} collapsed={collapsed} />
       </nav>
 
       <AccountRow collapsed={collapsed} />

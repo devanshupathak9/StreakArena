@@ -7,9 +7,9 @@ const VISIBLE_LIMIT = 5;
 const STORAGE_KEY = "sa.groups.expanded";
 
 /**
- * Groups behave like folders in a file explorer: the ones you open daily, with your
- * standing beside each. Expanded state is remembered because collapsing it is a
- * preference, not a per-visit decision.
+ * Groups behave like folders in a file explorer: open the row and your groups are
+ * underneath, with your standing beside each. Expanded state is remembered because
+ * collapsing it is a preference, not a per-visit decision.
  */
 export default function GroupTree({ collapsed }: { collapsed: boolean }) {
   const { groups } = useAppData();
@@ -34,6 +34,7 @@ export default function GroupTree({ collapsed }: { collapsed: boolean }) {
   const onGroupsIndex = location.pathname === "/groups";
   const shown = groups?.slice(0, VISIBLE_LIMIT) ?? [];
 
+  // The rail has no room for a tree, so it falls back to the plain row.
   if (collapsed) {
     return (
       <NavLink to="/groups" className="nav-item" title="Groups">
@@ -46,6 +47,11 @@ export default function GroupTree({ collapsed }: { collapsed: boolean }) {
   return (
     <div className="nav-tree">
       <div className={`nav-item nav-item-parent${onGroupsIndex ? " active" : ""}`}>
+        <NavLink to="/groups" end className="nav-parent-link">
+          <Users size={18} strokeWidth={1.75} aria-hidden="true" />
+          <span className="nav-label">Groups</span>
+        </NavLink>
+
         <button
           type="button"
           className="nav-chevron"
@@ -54,17 +60,12 @@ export default function GroupTree({ collapsed }: { collapsed: boolean }) {
           aria-label={open ? "Collapse groups" : "Expand groups"}
         >
           <ChevronRight
-            size={14}
-            strokeWidth={2}
+            size={15}
+            strokeWidth={2.2}
             className={open ? "chevron-open" : undefined}
             aria-hidden="true"
           />
         </button>
-
-        <NavLink to="/groups" end className="nav-parent-link">
-          <Users size={18} strokeWidth={1.75} aria-hidden="true" />
-          <span className="nav-label">Groups</span>
-        </NavLink>
       </div>
 
       {open && (

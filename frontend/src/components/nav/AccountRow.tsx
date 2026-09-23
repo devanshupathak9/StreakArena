@@ -3,10 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { MoreHorizontal } from "lucide-react";
 import Avatar from "../Avatar";
 import { useAuth } from "../../context/AuthContext";
+import { useAppData } from "../../context/AppData";
 
-/** Profile lives where people look for it: the account row, not the nav list. */
+/**
+ * A level has to mean something or it's decoration, so it counts the days you
+ * actually recorded: one level per fifty, and the bar is progress to the next.
+ */
+const DAYS_PER_LEVEL = 50;
+
 export default function AccountRow({ collapsed }: { collapsed: boolean }) {
   const { user, logout } = useAuth();
+  const { dashboard } = useAppData();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const wrapper = useRef<HTMLDivElement>(null);
@@ -29,6 +36,10 @@ export default function AccountRow({ collapsed }: { collapsed: boolean }) {
 
   if (!user) return null;
 
+  const totalDays = dashboard?.tasks.reduce((sum, task) => sum + task.totalDays, 0) ?? 0;
+  const level = Math.floor(totalDays / DAYS_PER_LEVEL) + 1;
+  const progress = ((totalDays % DAYS_PER_LEVEL) / DAYS_PER_LEVEL) * 100;
+
   function go(path: string) {
     setOpen(false);
     navigate(path);
@@ -38,7 +49,7 @@ export default function AccountRow({ collapsed }: { collapsed: boolean }) {
     <div className="account-row" ref={wrapper}>
       <button
         type="button"
-        className="account-button"
+        className="account-card"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="menu"
@@ -48,9 +59,25 @@ export default function AccountRow({ collapsed }: { collapsed: boolean }) {
           username={user.username}
           displayName={user.displayName}
           avatarUrl={user.avatarUrl}
-          size={28}
+          size={40}
         />
-        <span className="account-name nav-label">{user.displayName || user.username}</span>
+
+        <span className="account-detail nav-label">
+          <span className="account-name">{user.displayName || user.username}</span>
+          <span className="account-level">Level {level}</span>
+          <span className="xp-bar">
+            <span
+              className="xp-fill"
+              style={{ width: `${progress}%` }}
+              role="progressbar"
+              aria-valuenow={Math.round(progress)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Progress to level ${level + 1}`}
+            />
+          </span>
+        </span>
+
         <MoreHorizontal size={16} strokeWidth={1.75} className="nav-label" aria-hidden="true" />
       </button>
 

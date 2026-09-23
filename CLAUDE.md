@@ -72,31 +72,30 @@ instead run `cd backend && npm run dev` against the same database (it's publishe
   `Cascade`.
 - **Not every streak has an API.** The task composer leads with manual presets (reading, workout,
   meditation) on purpose — platform tasks are the flagship, not the only citizen.
-- **Colour carries meaning, and the roles are fixed.** Flame orange = a live streak only. Green =
-  a verified completion. Amber = today unmarked and at risk. Blue = clickable, and nothing static.
-  Everything else is ink. The user explicitly rejected an orange-everywhere UI — don't reintroduce
-  it, and never borrow one role's colour for another's job.
+- **Colour carries meaning, and the roles are fixed.** Flame orange = a live streak and the
+  XP bar. Green = a verified completion. Blue = clickable. Gold, silver and bronze = rank.
+  Everything else is ink. Never borrow one role's colour for another's job.
 - **A self-reported day must never look like a verified one.** `Tile.verified` exists for exactly
   this; verified days are green, self-reported are neutral grey.
 
 ## Before touching the frontend
 
-Read `.claude/skills/streakarena-ui/SKILL.md` first, and
-`.claude/skills/streakarena-sidebar/SKILL.md` for anything touching navigation or the app shell. It is the user's own design brief: StreakArena
-should read as a **contest standings board**, not a habit tracker or a SaaS dashboard. It fixes the
-colour roles, the type (Archivo + Archivo Narrow, tabular figures on every number, the streak count
-as display type), the layout rules (owed-today first; tasks are list rows, not cards; the
-leaderboard *is* the group page), and a list of AI-generated tells to avoid — identical rounded
-cards, three-stat-card rows, `A · B · C` meta strings, emoji as section icons, hover lift on
-everything.
+The design is **specified, not open**. Read `.claude/design/ui-spec.md` (the user's own
+build spec) and `.claude/design/reference.png` (the mockup it came from) before changing
+any screen. `.claude/skills/streakarena-ui/SKILL.md` and `streakarena-sidebar/SKILL.md`
+record what carries over that the spec doesn't state.
 
-The sidebar brief sets the nav structure (Dashboard / Groups / Global only, Profile in the account
-row, About in the account menu), the today block, lucide-react icons at 18px/1.75, the 248px ↔ 64px
-rail toggled with `[`, and a bottom tab bar under 768px. The nav adds **no requests of its own**:
-`AppDataProvider` holds the dashboard and group list, and both the pages and the sidebar read it.
+An earlier brief described the UI as a bordered standings board with no hero, no cards and
+no gradients. **The user replaced that with the reference mockup.** Cards, the hero banner,
+the five-stat row and the quote tiles are deliberate — don't "fix" them back.
 
-Its process is worth following literally: plan the palette and wireframe first, then check the plan
-for anything you'd produce for any habit app, and finish by removing one thing.
+Routes are `/` (dashboard), `/tasks`, `/groups`, `/groups/:id`, `/leaderboard`, `/profile`,
+`/about`. `/global` redirects to `/leaderboard`.
+
+Three palette values were lightened from the spec because they failed AA as small text;
+each is commented at the token in `styles.css` with the measured ratio. Colour roles are
+still fixed: flame = a live streak, green = verified, blue = clickable, gold/silver/bronze
+= rank, everything else ink.
 
 ## Verifying work
 

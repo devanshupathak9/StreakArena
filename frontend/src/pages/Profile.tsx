@@ -220,7 +220,7 @@ export default function Profile() {
 
             {error && <p className="error">{error}</p>}
 
-            <div className="task-actions">
+            <div className="head-actions">
               <button type="submit" className="button" disabled={busy}>
                 {busy ? "Saving…" : "Save changes"}
               </button>

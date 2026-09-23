@@ -97,12 +97,23 @@ export type TaskSummary = {
 
 export type HeatmapDay = { date: string; completed: number; total: number };
 
+/** One completion, with the instant it was recorded — what the activity feed reads. */
+export type RecentEvent = {
+  taskId: string;
+  title: string;
+  platform: string | null;
+  source: "manual" | "synced";
+  localDate: string;
+  at: string;
+};
+
 export type Dashboard = {
   today: string;
   timezone: string;
   tasks: TaskSummary[];
   profiles: LinkedProfile[];
   heatmap: HeatmapDay[];
+  recent: RecentEvent[];
 };
 
 export type GroupSummary = {
