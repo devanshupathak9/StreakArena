@@ -9,7 +9,7 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   other: "Other",
 };
 
-const CODING = new Set(["github", "leetcode", "codeforces"]);
+const CODING = new Set(["github", "gitlab", "leetcode", "codeforces", "codewars", "atcoder"]);
 
 /**
  * There is no category column in the schema, and inventing one would mean asking
@@ -20,7 +20,7 @@ export function categoryOf(task: TaskSummary): Category {
   const platform = task.platform?.id;
   if (platform && CODING.has(platform)) return "coding";
   if (platform === "duolingo") return "learning";
-  if (platform === "chesscom") return "other";
+  if (platform === "chesscom" || platform === "lichess") return "other";
 
   const text = task.title.toLowerCase();
   if (/read|book|page|study|learn|course|lecture|revis/.test(text)) return "learning";

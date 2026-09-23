@@ -62,12 +62,67 @@ function Duolingo({ size }: { size: number }) {
   );
 }
 
+function Gitlab({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 22 15.5 11.2 H8.5 Z" fill="#e24329" />
+      <path d="M12 22 8.5 11.2 H3.6 Z" fill="#fc6d26" />
+      <path d="M3.6 11.2 2.55 14.5a.73.73 0 0 0 .26.81L12 22Z" fill="#fca326" />
+      <path d="M3.6 11.2H8.5L6.4 4.7a.37.37 0 0 0-.7 0Z" fill="#e24329" />
+      <path d="M12 22 15.5 11.2H20.4Z" fill="#fc6d26" />
+      <path d="M20.4 11.2 21.45 14.5a.73.73 0 0 1-.26.81L12 22Z" fill="#fca326" />
+      <path d="M20.4 11.2H15.5L17.6 4.7a.37.37 0 0 1 .7 0Z" fill="#e24329" />
+    </svg>
+  );
+}
+
+function Codewars({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 1.6 20.8 5.4v7.1c0 4.4-3.5 8-8.8 9.9-5.3-1.9-8.8-5.5-8.8-9.9V5.4Z" fill="#b1361e" />
+      <path d="m8 9.1 3.1 3.4L16.4 7l1.7 2.2-7 7.6-4.8-5.3Z" fill="#f7f3f0" />
+    </svg>
+  );
+}
+
+function Lichess({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="#1b1b1b" aria-hidden="true">
+      <path d="M10.4 2c.9 1 .6 2 .2 2.6 1.5.3 4.4 1.6 5.6 5 .9 2.5 1 6.1.9 7.6h-8.8c1.6-1.5 3.5-3.6 3.7-5.2-1 1.2-3.5 3-5 3.4-.8-.6-1.5-2.1-.8-3.9.8-2.1 3-3.4 4.4-4.2-1.1-.2-2.6.3-3.4.7C7.3 6.2 8.7 3.6 10.4 2Z" />
+      <path d="M6.3 19.1h11.7c.5 0 .9.4.9.9v1c0 .5-.4 1-.9 1H6.3c-.5 0-1-.5-1-1v-1c0-.5.5-.9 1-.9Z" />
+    </svg>
+  );
+}
+
+function Atcoder({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="1.5" y="3.5" width="21" height="17" rx="3" fill="#1c2c4c" />
+      <text
+        x="12"
+        y="15.9"
+        textAnchor="middle"
+        fontFamily="Inter, system-ui, sans-serif"
+        fontSize="9.5"
+        fontWeight="700"
+        fill="#ffffff"
+      >
+        AC
+      </text>
+    </svg>
+  );
+}
+
 const BRANDS: Record<string, (p: { size: number }) => ReactNode> = {
   github: Github,
   leetcode: Leetcode,
   chesscom: Chess,
   codeforces: Codeforces,
   duolingo: Duolingo,
+  codewars: Codewars,
+  lichess: Lichess,
+  gitlab: Gitlab,
+  atcoder: Atcoder,
 };
 
 /** Manual tasks have no logo, so the title picks a sensible pictogram instead. */

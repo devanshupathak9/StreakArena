@@ -13,6 +13,10 @@ import { addDays, dateInTz } from "./streak.js";
 // generous rather than tight.
 const TIMEOUT_MS = 20_000;
 
+// Paged endpoints stop early on their own; this is the guard against an API that
+// keeps saying "there's more" forever.
+const MAX_PAGES = 6;
+
 // Chess.com and Duolingo reject requests without a descriptive agent.
 const USER_AGENT = "StreakArena/0.1 (streak tracker; +https://github.com/devanshupathak9/StreakArena)";
 
@@ -41,6 +45,37 @@ async function getJson(url, options = {}) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Lichess exports games as newline-delimited JSON, which `response.json()` can't read. */
+async function getText(url, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: { "User-Agent": USER_AGENT, ...options.headers },
+    });
+    if (response.status === 404) throw new Error("That handle wasn't found");
+    if (response.status === 429) throw new Error("Rate limited — try again in a few minutes");
+    if (!response.ok) throw new Error(`The API returned ${response.status}`);
+    return await response.text();
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error("The API took too long to answer");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * The window starts on a local calendar date, but these APIs filter on an absolute
+ * instant. Asking from a day and a half earlier covers every timezone offset; days
+ * that fall outside the window are dropped by fetchActiveDays anyway.
+ */
+function windowStartMs(since) {
+  return Date.parse(`${since}T00:00:00Z`) - 36 * 60 * 60 * 1000;
 }
 
 /** Every calendar date from `from` to `to` inclusive. */
@@ -198,7 +233,168 @@ async function duolingo(handle, since, today) {
   return new Set(datesBetween(addDays(today, -(length - 1)), today).filter((date) => date >= since));
 }
 
-const ADAPTERS = { github, leetcode, codeforces, chesscom, duolingo };
+/**
+ * Codewars. Documented and unauthenticated. Completed katas come back newest-first,
+ * 200 to a page, so we stop at the first page that runs past the window instead of
+ * walking someone's whole history.
+ */
+async function codewars(handle, since, today, timezone) {
+  const user = encodeURIComponent(handle);
+  const active = new Set();
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    let body;
+    try {
+      body = await getJson(
+        `https://www.codewars.com/api/v1/users/${user}/code-challenges/completed?page=${page}`,
+      );
+    } catch (error) {
+      if (page === 0) throw error;
+      break;
+    }
+    const items = body?.data ?? [];
+    if (items.length === 0) break;
+
+    let reachedWindowStart = false;
+    for (const item of items) {
+      if (!item.completedAt) continue;
+      const date = dateInTz(new Date(item.completedAt), timezone);
+      if (date < since) {
+        reachedWindowStart = true;
+        continue;
+      }
+      active.add(date);
+    }
+
+    if (reachedWindowStart || page + 1 >= (body.totalPages ?? 1)) break;
+  }
+
+  return active;
+}
+
+/**
+ * Lichess. Documented, unauthenticated, and streams the games themselves — so every
+ * field that isn't a timestamp is switched off, which turns megabytes of move text
+ * into a short list of dates.
+ */
+async function lichess(handle, since, today, timezone) {
+  const user = encodeURIComponent(handle.toLowerCase());
+  const query = new URLSearchParams({
+    since: String(windowStartMs(since)),
+    max: "400",
+    moves: "false",
+    pgnInJson: "false",
+    tags: "false",
+    clocks: "false",
+    evals: "false",
+    opening: "false",
+  });
+
+  const body = await getText(`https://lichess.org/api/games/user/${user}?${query}`, {
+    headers: { Accept: "application/x-ndjson" },
+  });
+
+  const active = new Set();
+  for (const line of body.split("\n")) {
+    if (!line.trim()) continue;
+    // One malformed line shouldn't lose the rest of the export.
+    let game;
+    try {
+      game = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const at = game.lastMoveAt ?? game.createdAt;
+    if (at) active.add(dateInTz(new Date(at), timezone));
+  }
+  return active;
+}
+
+/**
+ * GitLab. The events endpoint is keyed by numeric id, so the handle is looked up
+ * first. `after` is exclusive, hence the extra day.
+ */
+async function gitlab(handle, since, today, timezone) {
+  const found = await getJson(
+    `https://gitlab.com/api/v4/users?username=${encodeURIComponent(handle)}`,
+  );
+  const id = found?.[0]?.id;
+  if (!id) throw new Error("That handle wasn't found");
+
+  const active = new Set();
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    let events;
+    try {
+      events = await getJson(
+        `https://gitlab.com/api/v4/users/${id}/events?after=${addDays(since, -1)}&per_page=100&page=${page}`,
+      );
+    } catch (error) {
+      // Deep offset pages time out server-side on very busy accounts. The pages we
+      // did get are still true, and sync only ever adds — so keep them.
+      if (page === 1) throw error;
+      break;
+    }
+    if (!events?.length) break;
+    for (const event of events) {
+      if (event.created_at) active.add(dateInTz(new Date(event.created_at), timezone));
+    }
+    if (events.length < 100) break;
+  }
+  return active;
+}
+
+/**
+ * AtCoder, through the community kenkoooo mirror — AtCoder publishes no API of its
+ * own. Submissions come back oldest-first and the response is capped, so a truncated
+ * page would silently drop the most recent days; walking `from_second` forward past
+ * the last submission seen is what stops that.
+ */
+async function atcoder(handle, since, today, timezone) {
+  const user = encodeURIComponent(handle);
+  let from = Math.floor(windowStartMs(since) / 1000);
+  const active = new Set();
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    let body;
+    try {
+      body = await getJson(
+        `https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${user}&from_second=${from}`,
+      );
+    } catch (error) {
+      if (page === 0) throw error;
+      break;
+    }
+    const items = body ?? [];
+    if (items.length === 0) break;
+
+    let newest = from;
+    for (const submission of items) {
+      const second = Number(submission.epoch_second);
+      if (!second) continue;
+      active.add(dateInTz(new Date(second * 1000), timezone));
+      if (second > newest) newest = second;
+    }
+
+    // No forward progress means the mirror has nothing newer to give.
+    if (newest <= from) break;
+    from = newest + 1;
+    if (dateInTz(new Date(from * 1000), timezone) > today) break;
+  }
+
+  return active;
+}
+
+const ADAPTERS = {
+  github,
+  leetcode,
+  codeforces,
+  chesscom,
+  duolingo,
+  codewars,
+  lichess,
+  gitlab,
+  atcoder,
+};
 
 export function canSync(platform) {
   return Object.hasOwn(ADAPTERS, platform);

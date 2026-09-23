@@ -125,3 +125,16 @@ There is **no test suite and no browser in the agent session.** So:
   scale is a nightly snapshot table, not a cleverer query.
 - LeetCode and Duolingo use undocumented endpoints. Expect them to break; every adapter is
   wrapped and reports per-platform.
+- **Nine platforms sync.** Documented and supported: Codeforces, Chess.com, Codewars, Lichess,
+  GitLab, GitHub (token optional). Community mirror: AtCoder, via kenkoooo — AtCoder publishes
+  no API, and the mirror answers `200 []` for a handle that doesn't exist, so a typo there reads
+  as "no activity" rather than an error. Undocumented: LeetCode, Duolingo.
+- **Paged adapters keep what they got.** Codewars, GitLab and AtCoder page; a failure after the
+  first page returns the days already collected rather than failing the platform, because sync
+  only ever adds. GitLab 500s on deep offset pages for very busy accounts — that's the case this
+  exists for.
+- **Lichess is the slow one**, ~10s for an active player: the export streams games, and even with
+  every non-timestamp field switched off there are hundreds of them. It sits inside the 20s
+  timeout, but it's the first thing to feel slow if the budget ever tightens.
+- **Stack Overflow was looked at and skipped.** The API is free and works, but it keys on a
+  numeric user id rather than a handle, which doesn't fit "paste your username".

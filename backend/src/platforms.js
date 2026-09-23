@@ -41,6 +41,45 @@ const PLATFORMS = [
     url: (handle) => `https://www.chess.com/member/${handle}`,
   },
   {
+    id: "codewars",
+    label: "Codewars",
+    emoji: "🥋",
+    placeholder: "your_handle",
+    pattern: /^[A-Za-z0-9_.-]{1,40}$/,
+    hint: "Any day you completed a kata.",
+    url: (handle) => `https://www.codewars.com/users/${handle}`,
+  },
+  {
+    id: "lichess",
+    label: "Lichess",
+    emoji: "♞",
+    placeholder: "your_handle",
+    pattern: /^[A-Za-z0-9_-]{2,30}$/,
+    hint: "Any day you finished a game.",
+    url: (handle) => `https://lichess.org/@/${handle}`,
+  },
+  {
+    id: "gitlab",
+    label: "GitLab",
+    emoji: "🦊",
+    placeholder: "your_handle",
+    pattern: /^[A-Za-z0-9][A-Za-z0-9._-]{0,38}$/,
+    hint: "Pushes, merge requests and issues on public projects.",
+    url: (handle) => `https://gitlab.com/${handle}`,
+  },
+  {
+    id: "atcoder",
+    label: "AtCoder",
+    emoji: "🟦",
+    placeholder: "your_handle",
+    // AtCoder itself publishes no API; the community kenkoooo mirror does, and it
+    // answers 200 with an empty list for a handle that doesn't exist — so a typo
+    // here looks like "no activity" rather than an error.
+    pattern: /^[A-Za-z0-9_]{3,16}$/,
+    hint: "Any day you submitted, via the kenkoooo mirror.",
+    url: (handle) => `https://atcoder.jp/users/${handle}`,
+  },
+  {
     id: "duolingo",
     label: "Duolingo",
     emoji: "🦉",
