@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
 import type { TaskSummary } from "../lib/api";
 import MonthTiles from "./MonthTiles";
 import { formatWhen } from "../lib/dates";
@@ -19,7 +20,7 @@ function PlatformBadge({ platform }: { platform: NonNullable<TaskSummary["platfo
   if (!platform.url) {
     return (
       <Link className="badge badge-muted" to="/profile">
-Link {platform.label}
+        Link {platform.label}
       </Link>
     );
   }
@@ -31,7 +32,7 @@ Link {platform.label}
       rel="noreferrer"
       title={`Open ${platform.handle} on ${platform.label}`}
     >
-{platform.label}
+      {platform.label}
     </a>
   );
 }
@@ -50,10 +51,16 @@ export default function TaskRow({
   const synced = Boolean(task.platform);
   const canSync = Boolean(task.platform?.url);
 
+  // A dozen tasks each showing a month grid is a page you have to scroll past to
+  // read. The row states the case — streak, proof, last sync — and the calendar is
+  // the evidence you open when you doubt it.
+  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
   const [saving, setSaving] = useState(false);
+
+  const historyId = `task-history-${task.id}`;
 
   function startEditing() {
     setTitle(task.title);
@@ -77,63 +84,76 @@ export default function TaskRow({
   return (
     <article className="task-row">
       <div className="task-head">
-        <div className="task-identity">
-          {editing ? (
-            <form className="task-edit" onSubmit={handleSave}>
-              <input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                maxLength={80}
-                aria-label="Task name"
-                autoFocus
-              />
-              <input
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Add a note — what counts as done?"
-                maxLength={200}
-                aria-label="Task description"
-              />
-              <div className="task-actions">
-                <button type="submit" className="button button-sm" disabled={saving || !title.trim()}>
-                  {saving ? "Saving…" : "Save"}
-                </button>
-                <button type="button" className="link-button" onClick={() => setEditing(false)}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : (
-            <>
-              <h3 className="task-title">
-                {task.title}
-                {task.platform && <PlatformBadge platform={task.platform} />}
-                {task.syncedDays > 0 ? (
-                  <span
-                    className="badge badge-verified"
-                    title={`${task.syncedDays} days confirmed by ${task.platform?.label}`}
-                  >
-                    ✓ Verified
-                  </span>
-                ) : (
-                  !task.platform && <span className="badge badge-self">Self-reported</span>
-                )}
-              </h3>
+        <div className="task-main">
+          <button
+            type="button"
+            className="task-disclosure"
+            onClick={() => setOpen(!open)}
+            aria-expanded={open}
+            aria-controls={historyId}
+            aria-label={`${open ? "Hide" : "Show"} the calendar for ${task.title}`}
+          >
+            <ChevronRight size={18} strokeWidth={1.75} aria-hidden="true" />
+          </button>
 
-              {task.description && <p className="task-note">{task.description}</p>}
+          <div className="task-identity">
+            {editing ? (
+              <form className="task-edit" onSubmit={handleSave}>
+                <input
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  maxLength={80}
+                  aria-label="Task name"
+                  autoFocus
+                />
+                <input
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Add a note — what counts as done?"
+                  maxLength={200}
+                  aria-label="Task description"
+                />
+                <div className="task-actions">
+                  <button type="submit" className="button button-sm" disabled={saving || !title.trim()}>
+                    {saving ? "Saving…" : "Save"}
+                  </button>
+                  <button type="button" className="link-button" onClick={() => setEditing(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <h3 className="task-title">
+                  {task.title}
+                  {task.platform && <PlatformBadge platform={task.platform} />}
+                  {task.syncedDays > 0 ? (
+                    <span
+                      className="badge badge-verified"
+                      title={`${task.syncedDays} days confirmed by ${task.platform?.label}`}
+                    >
+                      ✓ Verified
+                    </span>
+                  ) : (
+                    !task.platform && <span className="badge badge-self">Self-reported</span>
+                  )}
+                </h3>
 
-              <p className="task-meta">
-                <span className={task.currentStreak > 0 ? "flame num" : "flame flame-cold num"}>
-                  {task.currentStreak} day{task.currentStreak === 1 ? "" : "s"} running
-                </span>
-                {task.platform?.lastSyncedAt && (
-                  <span className="task-synced">
-                    synced {formatWhen(task.platform.lastSyncedAt)}
+                {task.description && <p className="task-note">{task.description}</p>}
+
+                <p className="task-meta">
+                  <span className={task.currentStreak > 0 ? "flame num" : "flame flame-cold num"}>
+                    {task.currentStreak} day{task.currentStreak === 1 ? "" : "s"} running
                   </span>
-                )}
-              </p>
-            </>
-          )}
+                  {task.platform?.lastSyncedAt && (
+                    <span className="task-synced">
+                      synced {formatWhen(task.platform.lastSyncedAt)}
+                    </span>
+                  )}
+                </p>
+              </>
+            )}
+          </div>
         </div>
 
         {!editing && (
@@ -146,7 +166,7 @@ export default function TaskRow({
                 disabled={syncing}
                 title={`Check ${task.platform?.label} for days you were active`}
               >
-  {syncing ? "Syncing…" : `Sync ${task.platform?.label ?? ""}`}
+                {syncing ? "Syncing…" : `Sync ${task.platform?.label ?? ""}`}
               </button>
             )}
 
@@ -175,15 +195,19 @@ export default function TaskRow({
         )}
       </div>
 
-      <MonthTiles
-        tiles={task.tiles}
-        today={today}
-        readOnly={synced}
-        onToggle={(date, done) => onToggle(task.id, date, done)}
-      />
+      {open && (
+        <div className="task-history" id={historyId}>
+          <MonthTiles
+            tiles={task.tiles}
+            today={today}
+            readOnly={synced}
+            onToggle={(date, done) => onToggle(task.id, date, done)}
+          />
+        </div>
+      )}
 
       {synced && !canSync && (
-        <p className="muted small">
+        <p className="muted small task-hint">
           Link your {task.platform?.label} handle in Profile and this fills itself in.
         </p>
       )}

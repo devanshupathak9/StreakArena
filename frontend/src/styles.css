@@ -562,6 +562,21 @@ label select {
   flex-direction: column;
 }
 
+/* The list is the page and the composer is a rail beside it, so adding a task
+   doesn't mean scrolling past every task you already have. */
+.dashboard-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 264px;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.dashboard-aside {
+  min-width: 0;
+  position: sticky;
+  top: var(--space-5);
+}
+
 /* ---------- Task composer ---------- */
 
 .task-form {
@@ -575,6 +590,11 @@ label select {
   border: 0;
   padding: 0;
   box-shadow: none;
+}
+
+.composer .task-form-bare {
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .composer .task-form-bare input,
@@ -824,6 +844,51 @@ label select {
   align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
+}
+
+/* The calendar is evidence, not the headline: the row makes its case — streak,
+   proof, last sync — and you open the month when you want to check it. */
+.task-main {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+}
+
+.task-disclosure {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-top: -2px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition);
+}
+.task-disclosure:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.task-disclosure[aria-expanded="true"] {
+  color: var(--text-2);
+}
+.task-disclosure svg {
+  transition: transform var(--transition);
+}
+.task-disclosure[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
+/* Lined up under the title, the way a tree indents a child. */
+.task-history,
+.task-hint {
+  padding-left: calc(28px + var(--space-3));
 }
 
 /* ---------- Badges ---------- */
@@ -2102,6 +2167,13 @@ code {
 }
 
 @media (max-width: 860px) {
+  .dashboard-body {
+    grid-template-columns: 1fr;
+  }
+  /* Stacked, it is just the next block down — nothing to stick to. */
+  .dashboard-aside {
+    position: static;
+  }
   .auth-shell {
     grid-template-columns: 1fr;
   }

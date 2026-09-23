@@ -208,28 +208,41 @@ export default function Dashboard() {
 
       <Heatmap days={data.heatmap} today={data.today} />
 
-      {data.tasks.length === 0 ? (
-        <p className="empty">
-          Nothing tracked yet. Add a task below — tag it with a platform and it proves itself.
-        </p>
-      ) : (
-        <div className="task-list">
-          {data.tasks.map((task) => (
-            <TaskRow
-              key={task.id}
-              task={task}
-              today={data.today}
-              syncing={syncing === task.id || syncing === "all"}
-              onToggle={handleToggle}
-              onDelete={handleDelete}
-              onSync={(id) => void handleSync(id)}
-              onEdit={handleEdit}
-            />
-          ))}
-        </div>
-      )}
+      {/* Tasks are the detail under the headline grid; the composer sits beside them
+          rather than under them, so adding one doesn't mean scrolling past the lot. */}
+      <div className="dashboard-body">
+        <section className="board-section">
+          <div className="card-head">
+            <h2>Your tasks</h2>
+            <p className="muted small">Open one to see the month behind it</p>
+          </div>
 
-      <TaskForm onCreate={handleCreate} />
+          {data.tasks.length === 0 ? (
+            <p className="empty">
+              Nothing tracked yet. Add a task — tag it with a platform and it proves itself.
+            </p>
+          ) : (
+            <div className="task-list">
+              {data.tasks.map((task) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  today={data.today}
+                  syncing={syncing === task.id || syncing === "all"}
+                  onToggle={handleToggle}
+                  onDelete={handleDelete}
+                  onSync={(id) => void handleSync(id)}
+                  onEdit={handleEdit}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <aside className="dashboard-aside">
+          <TaskForm onCreate={handleCreate} />
+        </aside>
+      </div>
 
       <Toasts toasts={toasts} onDismiss={dismiss} />
     </div>
