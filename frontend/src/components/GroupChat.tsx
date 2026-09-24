@@ -1,15 +1,30 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { Paperclip, SendHorizonal, X } from "lucide-react";
 import { api, type GroupMessage } from "../lib/api";
 import Avatar from "./Avatar";
+import { useAuth } from "../context/AuthContext";
 import { formatWhen } from "../lib/dates";
 
 const POLL_MS = 6000;
 const MAX_BYTES = 5 * 1024 * 1024;
+/** Consecutive messages from one person inside this window read as one turn. */
+const GROUPING_MS = 5 * 60 * 1000;
 
 function humanSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function dayLabel(iso: string) {
+  const date = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const same = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  if (same(date, today)) return "Today";
+  if (same(date, yesterday)) return "Yesterday";
+  return date.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
 }
 
 /** Images are shown; everything else is a download link with its size. */
@@ -27,6 +42,7 @@ function Attachment({ message, groupId }: { message: GroupMessage; groupId: stri
 
   return (
     <a href={href} className="chat-file" target="_blank" rel="noreferrer">
+      <Paperclip size={14} strokeWidth={2} aria-hidden="true" />
       <span className="chat-file-name">{message.file.name}</span>
       <span className="muted small">{humanSize(message.file.size)}</span>
     </a>
@@ -34,6 +50,7 @@ function Attachment({ message, groupId }: { message: GroupMessage; groupId: stri
 }
 
 export default function GroupChat({ groupId }: { groupId: string }) {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<GroupMessage[] | null>(null);
   const [draft, setDraft] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -129,8 +146,16 @@ export default function GroupChat({ groupId }: { groupId: string }) {
     }
   }
 
+  /** Enter sends, shift+Enter starts a line — what every chat does. */
+  function handleKey(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void handleSend(event as unknown as FormEvent);
+    }
+  }
+
   return (
-    <section className="card">
+    <section className="card chat-card">
       <div className="card-head">
         <h2>Group chat</h2>
         <p className="muted small">Trash talk, accountability, whatever works</p>
@@ -144,47 +169,79 @@ export default function GroupChat({ groupId }: { groupId: string }) {
         ) : messages.length === 0 ? (
           <p className="muted small chat-empty">No messages yet — say something.</p>
         ) : (
-          messages.map((message) => (
-            <div key={message.id} className="chat-message">
-              <Avatar
-                username={message.author.username}
-                displayName={message.author.displayName}
-                avatarUrl={message.author.avatarUrl}
-                size={30}
-              />
-              <div className="chat-body">
-                <p className="chat-meta">
-                  <strong>{message.author.displayName || message.author.username}</strong>
-                  <span className="muted small">{formatWhen(message.createdAt)}</span>
-                </p>
-                {message.body && <p className="chat-text">{message.body}</p>}
-                <Attachment message={message} groupId={groupId} />
+          messages.map((message, index) => {
+            const previous = messages[index - 1];
+            const mine = message.author.userId === user?.id;
+            const newDay =
+              !previous || dayLabel(previous.createdAt) !== dayLabel(message.createdAt);
+            // A run of messages from one person reads as one turn, so only the
+            // first of the run carries an avatar and a name.
+            const runs =
+              !newDay &&
+              previous?.author.userId === message.author.userId &&
+              new Date(message.createdAt).getTime() -
+                new Date(previous.createdAt).getTime() <
+                GROUPING_MS;
+
+            return (
+              <div key={message.id}>
+                {newDay && (
+                  <div className="chat-day">
+                    <span>{dayLabel(message.createdAt)}</span>
+                  </div>
+                )}
+
+                <div
+                  className={`chat-message${mine ? " chat-mine" : ""}${runs ? " chat-run" : ""}`}
+                >
+                  <span className="chat-avatar">
+                    {!runs && (
+                      <Avatar
+                        username={message.author.username}
+                        displayName={message.author.displayName}
+                        avatarUrl={message.author.avatarUrl}
+                        size={30}
+                      />
+                    )}
+                  </span>
+
+                  <div className="chat-body">
+                    {!runs && (
+                      <p className="chat-meta">
+                        <strong>
+                          {mine ? "You" : message.author.displayName || message.author.username}
+                        </strong>
+                        <time dateTime={message.createdAt}>{formatWhen(message.createdAt)}</time>
+                      </p>
+                    )}
+                    {message.body && <p className="chat-text">{message.body}</p>}
+                    <Attachment message={message} groupId={groupId} />
+                  </div>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
       <form className="chat-composer" onSubmit={handleSend}>
         {file && (
           <div className="chat-pending">
+            <Paperclip size={14} strokeWidth={2} aria-hidden="true" />
             <span className="chat-file-name">{file.name}</span>
             <span className="muted small">{humanSize(file.size)}</span>
-            <button type="button" className="link-button" onClick={clearFile} aria-label="Remove file">
-              ✕
+            <button
+              type="button"
+              className="icon-button icon-button-sm"
+              onClick={clearFile}
+              aria-label="Remove file"
+            >
+              <X size={14} strokeWidth={2.4} aria-hidden="true" />
             </button>
           </div>
         )}
 
-        <div className="task-form">
-          <input
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="Message the group…"
-            maxLength={1000}
-            aria-label="Message"
-          />
-
+        <div className="chat-input-row">
           <input
             ref={fileInput}
             type="file"
@@ -193,12 +250,28 @@ export default function GroupChat({ groupId }: { groupId: string }) {
             accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/csv"
             onChange={handlePick}
           />
-          <label htmlFor="chat-file" className="button button-secondary chat-attach">
-            Attach
+          <label htmlFor="chat-file" className="chat-attach" title="Attach a file">
+            <Paperclip size={17} strokeWidth={2} aria-hidden="true" />
+            <span className="visually-hidden">Attach a file</span>
           </label>
 
-          <button type="submit" className="button" disabled={sending || (!draft.trim() && !file)}>
-            {sending ? "Sending…" : "Send"}
+          <textarea
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={handleKey}
+            placeholder="Message the group…"
+            maxLength={1000}
+            rows={1}
+            aria-label="Message"
+          />
+
+          <button
+            type="submit"
+            className="chat-send"
+            disabled={sending || (!draft.trim() && !file)}
+            aria-label="Send message"
+          >
+            <SendHorizonal size={17} strokeWidth={2} aria-hidden="true" />
           </button>
         </div>
       </form>

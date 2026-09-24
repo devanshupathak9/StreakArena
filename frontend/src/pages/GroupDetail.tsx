@@ -4,11 +4,8 @@ import { ArrowLeft, Check, MoreHorizontal, Plus, Trash2, UserPlus, Users } from 
 import { api, type GroupDetail as GroupData, type Platform } from "../lib/api";
 import Avatar from "../components/Avatar";
 import GroupChat from "../components/GroupChat";
-import PillTabs from "../components/ui/PillTabs";
 import PlatformIcon from "../components/ui/PlatformIcon";
 import Scenery from "../components/ui/Scenery";
-
-type Tab = "overview" | "challenges" | "members" | "chat";
 
 const MEDALS = ["gold", "silver", "bronze"];
 
@@ -17,7 +14,7 @@ export default function GroupDetail() {
   const navigate = useNavigate();
   const [data, setData] = useState<GroupData | null>(null);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
-  const [tab, setTab] = useState<Tab>("overview");
+  const [composing, setComposing] = useState(false);
   const [title, setTitle] = useState("");
   const [platform, setPlatform] = useState("");
   const [error, setError] = useState("");
@@ -49,6 +46,7 @@ export default function GroupDetail() {
       await api.createChallenge(id, trimmed, platform || null);
       setTitle("");
       setPlatform("");
+      setComposing(false);
       await load();
     } catch (err) {
       setError((err as Error).message);
@@ -126,9 +124,9 @@ export default function GroupDetail() {
   }
 
   return (
-    <div className="stack">
+    <div className="dashboard">
       <header className="group-banner">
-        <Scenery variant="banner" />
+        <Scenery variant="hero" />
 
         <button
           type="button"
@@ -194,217 +192,142 @@ export default function GroupDetail() {
         </div>
       </header>
 
-      <PillTabs
-        label="Group sections"
-        active={tab}
-        onChange={setTab}
-        tabs={[
-          { id: "overview", label: "Overview" },
-          { id: "challenges", label: "Challenges", count: challenges.length },
-          { id: "members", label: "Members", count: standings.length },
-          { id: "chat", label: "Chat" },
-        ]}
-      />
-
       {error && <p className="error">{error}</p>}
 
-      {tab === "overview" && (
-        <div className="group-grid-2">
-          <section className="card">
-            <div className="card-head">
-              <h2>Active challenges</h2>
-              <button type="button" className="link-button" onClick={() => setTab("challenges")}>
-                View all
-              </button>
-            </div>
-
-            {challenges.length === 0 ? (
-              <p className="empty">
-                No challenges yet. Add one and everyone in the group starts racing it.
-              </p>
-            ) : (
-              <div className="challenge-list">
-                {challenges.map((challenge) => {
-                  const joined = activeOn(challenge.id);
-                  const done = doneTodayOn(challenge.id);
-                  const pct = joined === 0 ? 0 : (done / joined) * 100;
-                  return (
-                    <div key={challenge.id} className="challenge-row">
-                      <PlatformIcon
-                        platform={challenge.platform?.id ?? null}
-                        title={challenge.title}
-                      />
-                      <div className="challenge-body">
-                        <span className="challenge-title">{challenge.title}</span>
-                        <span className="muted small">
-                          {done} of {joined} done today
-                        </span>
-                        <span className="bar">
-                          <span className="bar-fill" style={{ width: `${pct}%` }} />
-                        </span>
-                      </div>
-                      <span className="challenge-count num">
-                        {joined}/{standings.length}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          <GroupChat groupId={id} />
-        </div>
-      )}
-
-      {tab === "challenges" && (
+      <div className="group-overview">
         <section className="card">
           <div className="card-head">
             <h2>Challenges</h2>
-            <p className="muted small">Everyone in the group gets their own copy</p>
-          </div>
-
-          <form className="task-form" onSubmit={handleAdd}>
-            <input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="Add a challenge — e.g. One LeetCode a day"
-              maxLength={80}
-              aria-label="New challenge"
-            />
-            <select
-              value={platform}
-              onChange={(event) => setPlatform(event.target.value)}
-              aria-label="Platform (optional)"
-            >
-              <option value="">No platform</option>
-              {platforms.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <button type="submit" className="button" disabled={busy || !title.trim()}>
-              <Plus size={15} strokeWidth={2.4} aria-hidden="true" />
-              Add
+            <button type="button" className="button button-sm" onClick={() => setComposing(!composing)}>
+              <Plus size={15} strokeWidth={2.6} aria-hidden="true" />
+              Add task
             </button>
-          </form>
-
-          {challenges.length > 0 && (
-            <div className="challenge-list">
-              {challenges.map((challenge) => (
-                <div key={challenge.id} className="challenge-row">
-                  <PlatformIcon platform={challenge.platform?.id ?? null} title={challenge.title} />
-                  <div className="challenge-body">
-                    <span className="challenge-title">{challenge.title}</span>
-                    <span className="muted small">
-                      {challenge.platform ? challenge.platform.label : "Manual"} ·{" "}
-                      {activeOn(challenge.id)} racing
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="icon-button icon-button-sm danger"
-                    onClick={() => handleRemove(challenge.id, challenge.title)}
-                    aria-label={`Remove ${challenge.title}`}
-                  >
-                    <Trash2 size={15} strokeWidth={1.9} aria-hidden="true" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {tab === "members" && (
-        <section className="card">
-          <div className="card-head">
-            <h2>Standings</h2>
-            <p className="muted small">Streak per challenge, in each member's own timezone</p>
           </div>
+
+          {composing && (
+            <form className="composer task-form" onSubmit={handleAdd}>
+              <input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="One LeetCode a day"
+                maxLength={80}
+                aria-label="New challenge"
+                autoFocus
+              />
+              <select
+                value={platform}
+                onChange={(event) => setPlatform(event.target.value)}
+                aria-label="Platform (optional)"
+              >
+                <option value="">Manual</option>
+                {platforms.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className="button" disabled={busy || !title.trim()}>
+                Add
+              </button>
+            </form>
+          )}
 
           {challenges.length === 0 ? (
-            <p className="empty">Add a challenge and the board fills in.</p>
+            <p className="empty">
+              No challenges yet. Add one and everyone in the group starts racing it.
+            </p>
           ) : (
-            <div className="table-wrap">
-              <table className="board">
-                <thead>
-                  <tr>
-                    <th className="board-rank">#</th>
-                    <th>Member</th>
-                    {challenges.map((challenge) => (
-                      <th key={challenge.id} className="board-num">
-                        <span title={challenge.title}>{challenge.title}</span>
-                      </th>
-                    ))}
-                    <th className="board-num">Score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {standings.map((standing, index) => (
-                    <tr key={standing.userId} className={standing.isYou ? "board-you" : undefined}>
-                      <td className="board-rank">
-                        {index < 3 ? (
-                          <span className={`medal medal-${MEDALS[index]}`}>{index + 1}</span>
-                        ) : (
-                          <span className="num">{index + 1}</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className="member-cell">
-                          <Avatar
-                            username={standing.username}
-                            displayName={standing.displayName}
-                            avatarUrl={standing.avatarUrl}
-                            size={28}
-                          />
-                          <span className="member-name">
-                            <strong>{standing.displayName || standing.username}</strong>
-                          </span>
-                          {standing.isYou && <span className="chip chip-you">you</span>}
-                        </span>
-                      </td>
-                      {challenges.map((challenge) => {
-                        const entry = standing.challenges.find(
-                          (c) => c.challengeId === challenge.id,
-                        );
-                        if (!entry?.joined) {
-                          return (
-                            <td key={challenge.id} className="board-num muted">
-                              —
-                            </td>
-                          );
-                        }
-                        return (
-                          <td key={challenge.id} className="board-num">
-                            <span className={entry.currentStreak > 0 ? "flame" : "flame flame-cold"}>
-                              <span className="num">{entry.currentStreak}</span>
-                            </span>
-                            {entry.doneToday && (
-                              <span className="board-today" title="Done today">
-                                ●
-                              </span>
-                            )}
-                          </td>
-                        );
-                      })}
-                      <td className="board-num board-score num">{standing.score}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="challenge-list">
+              {challenges.map((challenge) => {
+                const joined = activeOn(challenge.id);
+                const done = doneTodayOn(challenge.id);
+                const pct = joined === 0 ? 0 : (done / joined) * 100;
+                return (
+                  <div key={challenge.id} className="challenge-row">
+                    <PlatformIcon
+                      platform={challenge.platform?.id ?? null}
+                      title={challenge.title}
+                    />
+                    <div className="challenge-body">
+                      <span className="challenge-title">{challenge.title}</span>
+                      <span className="muted small">
+                        {done} of {joined} done today
+                      </span>
+                      <span className="bar">
+                        <span className="bar-fill" style={{ width: `${pct}%` }} />
+                      </span>
+                    </div>
+                    {group.isOwner && (
+                      <button
+                        type="button"
+                        className="icon-button icon-button-sm danger"
+                        onClick={() => handleRemove(challenge.id, challenge.title)}
+                        aria-label={`Remove ${challenge.title}`}
+                      >
+                        <Trash2 size={15} strokeWidth={1.9} aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
-      )}
 
-      {tab === "chat" && <GroupChat groupId={id} />}
+        <section className="card">
+          <div className="card-head">
+            <h2>Members</h2>
+            <p className="muted small">Points are verified days</p>
+          </div>
 
-      <p className="muted small">
-        Group challenges show up on your dashboard like any other task — platform-backed ones fill
-        themselves in when you sync.
-      </p>
+          <ol className="member-list">
+            {standings.map((standing, index) => {
+              const streak = standing.challenges.reduce(
+                (max, c) => Math.max(max, c.currentStreak),
+                0,
+              );
+              return (
+                <li
+                  key={standing.userId}
+                  className={standing.isYou ? "member-row member-you" : "member-row"}
+                >
+                  <span className="member-rank">
+                    {index < 3 ? (
+                      <span className={`medal medal-${MEDALS[index]}`}>{index + 1}</span>
+                    ) : (
+                      <span className="num">{index + 1}</span>
+                    )}
+                  </span>
+
+                  <Avatar
+                    username={standing.username}
+                    displayName={standing.displayName}
+                    avatarUrl={standing.avatarUrl}
+                    size={32}
+                  />
+
+                  <span className="member-detail">
+                    <span className="member-label">
+                      {standing.displayName || standing.username}
+                      {standing.isYou && <span className="chip chip-you">you</span>}
+                    </span>
+                    <span className="muted small">
+                      <span className="flame-icon" aria-hidden="true">
+                        🔥
+                      </span>{" "}
+                      {streak} day{streak === 1 ? "" : "s"} · {standing.doneToday} done today
+                    </span>
+                  </span>
+
+                  <span className="member-points num">{standing.score}</span>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      </div>
+
+      <GroupChat groupId={id} />
     </div>
   );
 }

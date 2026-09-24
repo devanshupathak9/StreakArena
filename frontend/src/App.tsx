@@ -1,7 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import MobileTabBar from "./components/nav/MobileTabBar";
 import Sidebar from "./components/nav/Sidebar";
-import TopBar from "./components/nav/TopBar";
 import About from "./pages/About";
 import Dashboard from "./pages/Dashboard";
 import GroupDetail from "./pages/GroupDetail";
@@ -35,7 +34,6 @@ export default function App() {
       <div className="shell">
         <Sidebar />
         <div className="shell-main">
-          <TopBar />
           <main className="container">
             <Routes>
               <Route path="/" element={<Dashboard />} />

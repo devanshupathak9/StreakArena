@@ -74,10 +74,10 @@
   --step--1: 0.8125rem;
   --step-0: 0.875rem;
   --step-1: 1rem;
-  --step-2: 1.25rem;
-  --step-3: 1.75rem;
-  --step-4: 2.25rem;
-  --step-display: clamp(2.75rem, 5.2vw, 4rem);
+  --step-2: 1.125rem;
+  --step-3: 1.375rem;
+  --step-4: 1.75rem;
+  --step-display: clamp(1.75rem, 3vw, 2.5rem);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -415,17 +415,6 @@ textarea:focus-visible {
   background: var(--danger-wash);
   border-color: color-mix(in srgb, var(--danger) 40%, transparent);
 }
-.icon-dot {
-  position: absolute;
-  top: 7px;
-  right: 8px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--flame);
-  box-shadow: 0 0 0 2px var(--bg);
-}
-
 /* Platform logos sit on a light tile, the way an app icon does. */
 .icon-tile {
   display: inline-flex;
@@ -685,7 +674,7 @@ textarea:focus-visible {
   padding: 0 var(--space-3);
   border-radius: var(--radius-md);
   color: var(--text-2);
-  font-size: var(--step-1);
+  font-size: var(--step-0);
   font-weight: 500;
   transition: background var(--transition), color var(--transition);
 }
@@ -957,59 +946,8 @@ textarea:focus-visible {
 }
 
 /* ============================================================
-   Top bar
+   Search field
    ============================================================ */
-
-.topbar {
-  position: absolute;
-  top: var(--space-6);
-  right: var(--space-6);
-  z-index: 25;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.topbar-avatar {
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  border-radius: 50%;
-  line-height: 0;
-}
-
-.search-pop {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  right: 0;
-  width: min(360px, 80vw);
-  padding: var(--space-3);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
-  box-shadow: var(--shadow-lg);
-}
-.search-hits {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: var(--space-2);
-}
-.search-hits button {
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--text-2);
-  font: inherit;
-  font-size: var(--step--1);
-  text-align: left;
-  cursor: pointer;
-}
-.search-hits button:hover {
-  background: var(--surface-3);
-  color: var(--text);
-}
 
 .search-field {
   display: flex;
@@ -1117,7 +1055,7 @@ textarea:focus-visible {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-lg);
-  min-height: 236px;
+  min-height: 188px;
   display: flex;
   align-items: center;
   gap: var(--space-6);
@@ -1131,10 +1069,10 @@ textarea:focus-visible {
 }
 
 .hero-title {
-  font-size: clamp(2.25rem, 4.6vw, 4rem);
+  font-size: var(--step-display);
   font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
 }
 /* The one gradient in the app, and it is the flame's own two stops. */
 .hero-accent {
@@ -1145,8 +1083,8 @@ textarea:focus-visible {
 }
 
 .hero-sub {
-  margin-top: var(--space-4);
-  font-size: var(--step-1);
+  margin-top: var(--space-3);
+  font-size: var(--step-0);
   color: var(--text-2);
   white-space: nowrap;
 }
@@ -1174,7 +1112,7 @@ textarea:focus-visible {
 }
 .hero-quote blockquote {
   margin: 0;
-  font-size: var(--step-1);
+  font-size: var(--step-0);
   font-weight: 500;
   color: #ffffff;
   line-height: 1.35;
@@ -1204,7 +1142,7 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 104px;
+  min-height: 92px;
   padding: var(--space-5);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -1220,8 +1158,8 @@ a.stat-card:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   flex-shrink: 0;
   border-radius: var(--radius-md);
 }
@@ -1248,7 +1186,7 @@ a.stat-card:hover {
 }
 .stat-value {
   display: block;
-  font-size: var(--step-3);
+  font-size: var(--step-4);
   font-weight: 700;
   line-height: 1.15;
   letter-spacing: -0.02em;
@@ -1415,7 +1353,7 @@ a.stat-card:hover {
   min-width: 0;
 }
 .task-title {
-  font-size: var(--step-1);
+  font-size: var(--step-0);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1720,7 +1658,7 @@ a.stat-card:hover {
   line-height: 1.1;
 }
 .ring-value {
-  font-size: var(--step-3);
+  font-size: var(--step-2);
   font-weight: 700;
 }
 .ring-caption {
@@ -1741,7 +1679,7 @@ a.stat-card:hover {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--step-0);
+  font-size: var(--step--1);
   color: var(--text-2);
 }
 .check-mark {
@@ -1785,7 +1723,7 @@ a.stat-card:hover {
 }
 .quote-tile blockquote {
   margin: 0;
-  font-size: var(--step-2);
+  font-size: var(--step-1);
   font-weight: 600;
   line-height: 1.3;
   color: #ffffff;
@@ -2076,11 +2014,23 @@ a.stat-card:hover {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-lg);
-  min-height: 168px;
+  min-height: 188px;
   display: flex;
   align-items: flex-end;
-  padding: var(--space-5);
+  padding: var(--space-6);
   isolation: isolate;
+}
+/* The identity block sits bottom-left, so the scrim leans that way rather than
+   the left-to-right lean the dashboard hero uses. */
+.group-banner .scenery-hero .scenery-scrim {
+  background:
+    linear-gradient(
+      90deg,
+      rgb(10 14 23 / 0.9) 0%,
+      rgb(10 14 23 / 0.62) 45%,
+      rgb(10 14 23 / 0.18) 100%
+    ),
+    linear-gradient(180deg, rgb(10 14 23 / 0.45) 0%, transparent 40%, rgb(10 14 23 / 0.85) 100%);
 }
 .banner-back {
   position: absolute;
@@ -2109,14 +2059,75 @@ a.stat-card:hover {
   gap: var(--space-4);
 }
 .banner-identity h1 {
-  font-size: var(--step-3);
+  font-size: var(--step-4);
 }
 
-.group-grid-2 {
+/* Challenges on the left, the standing on the right, chat underneath both. */
+.group-overview {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
+}
+.group-overview > * {
+  min-width: 0;
+}
+
+.member-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.member-you {
+  background: var(--accent-wash);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.member-rank {
+  width: 26px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+.member-detail {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.member-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--step-0);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-points {
+  flex-shrink: 0;
+  font-size: var(--step-2);
+  font-weight: 700;
+  color: var(--verdict);
 }
 
 .challenge-list {
@@ -2172,25 +2183,58 @@ a.stat-card:hover {
    Group chat
    ============================================================ */
 
+.chat-card {
+  display: flex;
+  flex-direction: column;
+}
+
 .chat-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  max-height: 420px;
+  gap: 2px;
+  min-height: 220px;
+  max-height: 460px;
   overflow-y: auto;
-  padding-right: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-4) 0;
 }
 .chat-empty {
-  color: var(--text-dim);
-  font-size: var(--step--1);
+  color: var(--muted);
   text-align: center;
-  padding: var(--space-6) 0;
+  padding: var(--space-7) 0;
 }
+
+/* A date rule, so a gap in the conversation reads as a gap in time. */
+.chat-day {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 var(--space-3);
+  color: var(--muted);
+  font-size: var(--step--2);
+}
+.chat-day::before,
+.chat-day::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 .chat-message {
   display: flex;
   gap: var(--space-3);
   align-items: flex-start;
+  padding: 3px 0;
 }
+/* A run of messages from one person keeps the indent but drops the repeat. */
+.chat-avatar {
+  width: 30px;
+  flex-shrink: 0;
+}
+.chat-run {
+  margin-top: -2px;
+}
+
 .chat-body {
   min-width: 0;
   flex: 1;
@@ -2199,28 +2243,47 @@ a.stat-card:hover {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
-  font-size: var(--step--1);
+  margin-bottom: 2px;
 }
 .chat-meta strong {
+  font-size: var(--step--1);
   font-weight: 600;
 }
-.chat-meta time,
-.chat-meta .muted {
+.chat-meta time {
   font-size: var(--step--2);
-  color: var(--text-dim);
+  color: var(--muted);
 }
+
 .chat-text {
+  display: inline-block;
+  max-width: 46ch;
+  padding: 7px 11px;
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+  box-shadow: inset 0 0 0 1px var(--border);
   font-size: var(--step-0);
-  color: var(--text-2);
+  color: var(--text);
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
-.chat-pending {
-  opacity: 0.55;
+/* Your own messages are tinted rather than moved: a single column stays readable
+   and keeps the avatars in one line down the left. */
+.chat-mine .chat-text {
+  background: var(--accent-wash);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
 }
+
 .chat-image {
+  display: block;
   margin-top: var(--space-2);
   max-width: 260px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  line-height: 0;
+}
+.chat-image img {
+  width: 100%;
+  height: auto;
   display: block;
 }
 .chat-file {
@@ -2229,7 +2292,7 @@ a.stat-card:hover {
   gap: var(--space-2);
   margin-top: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--border-strong);
   font-size: var(--step--1);
@@ -2238,6 +2301,7 @@ a.stat-card:hover {
 .chat-file:hover {
   text-decoration: none;
   color: var(--text);
+  border-color: var(--accent);
 }
 .chat-file-name {
   max-width: 180px;
@@ -2245,28 +2309,86 @@ a.stat-card:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .chat-composer {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-  align-items: center;
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
 }
-.chat-attach {
+
+.chat-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  font-size: var(--step--1);
+  color: var(--text-2);
+}
+
+.chat-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.chat-input-row:focus-within {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.chat-input-row textarea {
+  flex: 1;
+  min-height: 38px;
+  max-height: 140px;
+  padding: 9px 4px;
+  border: 0;
+  background: none;
+  resize: none;
+  font-size: var(--step-0);
+  line-height: 1.45;
+}
+.chat-input-row textarea:focus-visible {
+  box-shadow: none;
+}
+
+.chat-attach,
+.chat-send {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 38px;
   height: 38px;
   flex-shrink: 0;
+  border: 0;
   border-radius: var(--radius);
-  background: var(--bg-inset);
-  box-shadow: inset 0 0 0 1px var(--border-strong);
-  color: var(--text-2);
   cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.chat-attach {
+  background: none;
+  color: var(--muted);
 }
 .chat-attach:hover {
-  color: var(--text);
   background: var(--surface-2);
+  color: var(--text);
+}
+.chat-send {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.chat-send:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.chat-send:disabled {
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: not-allowed;
 }
 
 /* ============================================================
@@ -2572,7 +2694,7 @@ a.stat-card:hover {
    the point where a cell is readable. */
 @media (max-width: 1100px) {
   .analytics-row,
-  .group-grid-2 {
+  .group-overview {
     grid-template-columns: 1fr;
   }
   .heatmap-wrap {
@@ -2610,10 +2732,6 @@ a.stat-card:hover {
   .container {
     padding: var(--space-4);
     padding-bottom: calc(var(--tabbar-h) + var(--space-6) + env(safe-area-inset-bottom, 0px));
-  }
-  .topbar {
-    top: var(--space-4);
-    right: var(--space-4);
   }
   .hero {
     padding: var(--space-6);
@@ -2753,7 +2871,7 @@ a.stat-card:hover {
   padding-top: 3px;
 }
 .feed-text {
-  font-size: var(--step-0);
+  font-size: var(--step--1);
   color: var(--text);
   overflow-wrap: anywhere;
 }
