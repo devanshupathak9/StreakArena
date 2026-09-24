@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, RefreshCw } from "lucide-react";
+import { ChevronRight, Plus, RefreshCw, Users } from "lucide-react";
 import type { TaskSummary } from "../lib/api";
 import { CATEGORY_LABELS, categoryOf, type Category } from "../lib/categories";
 import PillTabs from "./ui/PillTabs";
@@ -22,6 +22,24 @@ type Props = {
 
 const ORDER: Category[] = ["coding", "learning", "health", "other"];
 
+/** Your own tasks first, then one bucket per group that put tasks on your board. */
+function split(tasks: TaskSummary[]) {
+  const personal: TaskSummary[] = [];
+  const groups = new Map<string, { name: string; tasks: TaskSummary[] }>();
+
+  for (const task of tasks) {
+    if (!task.group) {
+      personal.push(task);
+      continue;
+    }
+    const bucket = groups.get(task.group.id) ?? { name: task.group.name, tasks: [] };
+    bucket.tasks.push(task);
+    groups.set(task.group.id, bucket);
+  }
+
+  return { personal, groups: [...groups.entries()] };
+}
+
 export default function TaskPanel({
   tasks,
   today,
@@ -35,6 +53,7 @@ export default function TaskPanel({
 }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
   const [composing, setComposing] = useState(false);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
 
   const counts = new Map<Category, number>();
   for (const task of tasks) {
@@ -43,11 +62,31 @@ export default function TaskPanel({
   }
 
   const shown = filter === "all" ? tasks : tasks.filter((task) => categoryOf(task) === filter);
+  const { personal, groups } = split(shown);
   const syncable = tasks.some((task) => task.platform?.url);
 
   async function handleCreate(title: string, platform: string | null) {
     await onCreate(title, platform);
     setComposing(false);
+  }
+
+  function rows(list: TaskSummary[]) {
+    return (
+      <div className="task-list">
+        {list.map((task) => (
+          <TaskRow
+            key={task.id}
+            task={task}
+            today={today}
+            syncing={syncing === task.id || syncing === "all"}
+            onToggle={onToggle}
+            onDelete={onDelete}
+            onSync={onSync}
+            onEdit={onEdit}
+          />
+        ))}
+      </div>
+    );
   }
 
   return (
@@ -110,20 +149,37 @@ export default function TaskPanel({
             <span>Actions</span>
           </div>
 
-          <div className="task-list">
-            {shown.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                today={today}
-                syncing={syncing === task.id || syncing === "all"}
-                onToggle={onToggle}
-                onDelete={onDelete}
-                onSync={onSync}
-                onEdit={onEdit}
-              />
-            ))}
-          </div>
+          {personal.length > 0 && rows(personal)}
+
+          {groups.map(([id, group]) => {
+            const expanded = open[id] ?? false;
+            const done = group.tasks.filter((task) => task.doneToday).length;
+            return (
+              <div key={id} className="task-group">
+                <button
+                  type="button"
+                  className="task-group-head"
+                  onClick={() => setOpen((current) => ({ ...current, [id]: !expanded }))}
+                  aria-expanded={expanded}
+                  aria-controls={`group-tasks-${id}`}
+                >
+                  <ChevronRight
+                    size={16}
+                    strokeWidth={2.2}
+                    className={expanded ? "chevron-open" : undefined}
+                    aria-hidden="true"
+                  />
+                  <Users size={15} strokeWidth={2} aria-hidden="true" />
+                  <span className="task-group-name">{group.name}</span>
+                  <span className="task-group-count num">
+                    {done}/{group.tasks.length} done today
+                  </span>
+                </button>
+
+                {expanded && <div id={`group-tasks-${id}`}>{rows(group.tasks)}</div>}
+              </div>
+            );
+          })}
         </div>
       )}
     </section>

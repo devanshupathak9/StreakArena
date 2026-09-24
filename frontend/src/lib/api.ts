@@ -92,6 +92,8 @@ export type TaskSummary = {
   doneToday: boolean;
   syncedDays: number;
   platform: TaskPlatform | null;
+  /** Set when this task is your copy of a group challenge. */
+  group: { id: string; name: string } | null;
   tiles: Tile[];
 };
 
@@ -224,6 +226,14 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(input),
     }).then((r) => r.user),
+
+  uploadAvatar: (file: File) => {
+    const form = new FormData();
+    form.append("avatar", file);
+    return request<{ user: User }>("/auth/me/avatar", { method: "POST", body: form }).then(
+      (r) => r.user,
+    );
+  },
 
   dashboard: (days = 30) => request<Dashboard>(`/dashboard?days=${days}`),
 

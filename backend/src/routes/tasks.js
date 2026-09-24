@@ -54,7 +54,12 @@ tasksRouter.get("/dashboard", async (req, res) => {
     prisma.task.findMany({
       where: { userId: req.user.id },
       orderBy: { createdAt: "asc" },
-        include: { completions: { select: { localDate: true, source: true } } },
+      include: {
+        completions: { select: { localDate: true, source: true } },
+        // Which challenge this task is a copy of, so the list can separate your own
+        // tasks from the ones a group put there. Null once the group detaches it.
+        groupTask: { select: { group: { select: { id: true, name: true } } } },
+      },
     }),
     prisma.platformAccount.findMany({ where: { userId: req.user.id }, orderBy: { createdAt: "asc" } }),
     // The activity feed wants real instants, not the bare local dates the tiles use —
@@ -105,6 +110,7 @@ tasksRouter.get("/dashboard", async (req, res) => {
         totalDays: done.size,
         syncedDays: task.completions.filter((c) => c.source === "synced").length,
         platform: taskPlatform(task.platform, linked),
+        group: task.groupTask?.group ?? null,
         doneToday: done.has(today),
         tiles: tileWindow.map((date) => ({
           date,

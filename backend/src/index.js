@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import { authRouter } from "./routes/auth.js";
+import { authRouter, avatarRouter } from "./routes/auth.js";
 import { globalRouter } from "./routes/global.js";
 import { groupsRouter } from "./routes/groups.js";
 import { profilesRouter } from "./routes/profiles.js";
@@ -25,6 +25,7 @@ app.use(
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 app.use("/api/auth", authRouter);
+app.use("/api", avatarRouter);
 app.use("/api", profilesRouter);
 app.use("/api", groupsRouter);
 app.use("/api", globalRouter);

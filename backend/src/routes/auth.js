@@ -10,8 +10,20 @@ import {
   verifyPassword,
 } from "../auth.js";
 import { isValidTimezone } from "../streak.js";
+import { openStored, removeStored, storeUpload, upload, uploadErrorMessage } from "../uploads.js";
 
 export const authRouter = Router();
+export const avatarRouter = Router();
+
+/** An uploaded avatar is served back through this prefix, never as static files. */
+const AVATAR_PREFIX = "/api/avatars/";
+
+/** Only uploads we served ourselves can be deleted when one is replaced. */
+function storedAvatarKey(avatarUrl) {
+  if (!avatarUrl?.startsWith(AVATAR_PREFIX)) return null;
+  const key = avatarUrl.slice(AVATAR_PREFIX.length);
+  return /^[0-9a-f-]{36}$/i.test(key) ? key : null;
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -137,4 +149,54 @@ authRouter.patch("/me", requireAuth, loadUser, async (req, res) => {
     ? await prisma.user.update({ where: { id: req.user.id }, data })
     : req.user;
   res.json({ user: publicUser(user) });
+});
+
+/**
+ * Upload a picture instead of hunting for a URL. The bytes go through the same
+ * store the chat attachments use, so S3 on ECS and a volume locally — and the old
+ * one is deleted on replace, because nothing else will ever come looking for it.
+ */
+authRouter.post("/me/avatar", requireAuth, loadUser, (req, res) => {
+  upload.single("avatar")(req, res, async (uploadError) => {
+    if (uploadError) return res.status(400).json({ error: uploadErrorMessage(uploadError) });
+    if (!req.file) return res.status(400).json({ error: "Choose an image first" });
+
+    // The shared allow-list lets PDFs and text through; an avatar is an image.
+    if (!req.file.mimetype.startsWith("image/")) {
+      return res.status(400).json({ error: "That needs to be an image" });
+    }
+
+    const previous = storedAvatarKey(req.user.avatarUrl);
+    const key = await storeUpload(req.file);
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: { avatarUrl: `${AVATAR_PREFIX}${key}` },
+    });
+
+    if (previous) removeStored(previous);
+    res.json({ user: publicUser(user) });
+  });
+});
+
+/**
+ * Avatars appear on leaderboards and in chat, so any signed-in user can fetch one —
+ * but they still stream through here rather than being served as static files, so the
+ * store stays private and the key can't be walked.
+ */
+avatarRouter.get("/avatars/:key", requireAuth, async (req, res) => {
+  if (!/^[0-9a-f-]{36}$/i.test(req.params.key)) {
+    return res.status(404).json({ error: "No such image" });
+  }
+
+  const stream = await openStored(req.params.key);
+  if (!stream) return res.status(404).json({ error: "No such image" });
+
+  res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Cache-Control", "private, max-age=300");
+  stream.on("error", () => {
+    if (!res.headersSent) res.status(404).json({ error: "No such image" });
+    else res.end();
+  });
+  stream.pipe(res);
 });

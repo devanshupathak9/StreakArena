@@ -1,15 +1,20 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { api, type LinkedProfile, type Platform } from "../lib/api";
+import PlatformIcon from "./ui/PlatformIcon";
 import { formatWhen } from "../lib/dates";
 
 /**
- * One handle per platform, edited in place. StreakArena stores nothing but the
- * handle — linking is what turns a task into a one-click trip to your profile.
+ * Only what you've actually linked is on screen. Nine empty rows was a list of
+ * things you hadn't done; picking a platform from the menu and adding it is the
+ * same work without the wall.
  */
 export default function LinkedProfiles() {
   const [platforms, setPlatforms] = useState<Platform[]>([]);
-  const [linked, setLinked] = useState<Record<string, LinkedProfile>>({});
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [linked, setLinked] = useState<LinkedProfile[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [choice, setChoice] = useState("");
+  const [handle, setHandle] = useState("");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
@@ -17,24 +22,28 @@ export default function LinkedProfiles() {
     Promise.all([api.platforms(), api.profiles()])
       .then(([catalog, profiles]) => {
         setPlatforms(catalog);
-        setLinked(Object.fromEntries(profiles.map((p) => [p.platform, p])));
-        setDrafts(Object.fromEntries(profiles.map((p) => [p.platform, p.handle])));
+        setLinked(profiles);
       })
       .catch((err) => setError((err as Error).message));
   }, []);
 
-  async function handleSave(event: FormEvent, platform: string) {
+  const linkedIds = new Set(linked.map((profile) => profile.platform));
+  const available = platforms.filter((platform) => !linkedIds.has(platform.id));
+  const selected = available.find((platform) => platform.id === choice) ?? available[0];
+
+  async function handleAdd(event: FormEvent) {
     event.preventDefault();
-    const handle = (drafts[platform] ?? "").trim();
-    if (!handle || busy) return;
+    const trimmed = handle.trim();
+    if (!selected || !trimmed || busy) return;
 
     setError("");
-    setBusy(platform);
+    setBusy(selected.id);
     try {
-      const profile = await api.linkProfile(platform, handle);
-      setLinked((current) => ({ ...current, [platform]: profile }));
-      // The server strips a pasted URL down to the handle — show what it kept.
-      setDrafts((current) => ({ ...current, [platform]: profile.handle }));
+      const profile = await api.linkProfile(selected.id, trimmed);
+      setLinked((current) => [...current, profile]);
+      setHandle("");
+      setChoice("");
+      setAdding(false);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -42,17 +51,14 @@ export default function LinkedProfiles() {
     }
   }
 
-  async function handleUnlink(platform: string) {
+  async function handleUnlink(platform: string, label: string) {
+    if (!window.confirm(`Unlink ${label}? Days it already proved stay on your tiles.`)) return;
+
     setError("");
     setBusy(platform);
     try {
       await api.unlinkProfile(platform);
-      setLinked((current) => {
-        const next = { ...current };
-        delete next[platform];
-        return next;
-      });
-      setDrafts((current) => ({ ...current, [platform]: "" }));
+      setLinked((current) => current.filter((profile) => profile.platform !== platform));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -63,79 +69,109 @@ export default function LinkedProfiles() {
   return (
     <section className="card">
       <div className="card-head">
-        <h2>Linked profiles</h2>
-        <p className="muted">{Object.keys(linked).length} linked</p>
-      </div>
+        <div>
+          <h2>Linked profiles</h2>
+          <p className="muted small">
+            {linked.length === 0
+              ? "Nothing linked yet"
+              : `${linked.length} of ${platforms.length} linked`}
+          </p>
+        </div>
 
-      <p className="muted small">
-        Add your handle once, then tag a task with that platform. Its tile row links straight
-        to your profile, and <strong>Sync</strong> reads your real activity back so the streak
-        is evidence rather than self-report. Public handles only — no passwords, no account
-        access.
-      </p>
+        {available.length > 0 && (
+          <button type="button" className="button button-sm" onClick={() => setAdding(!adding)}>
+            <Plus size={15} strokeWidth={2.6} aria-hidden="true" />
+            Link a platform
+          </button>
+        )}
+      </div>
 
       {error && <p className="error">{error}</p>}
 
-      <div className="profile-list">
-        {platforms.map((platform) => {
-          const profile = linked[platform.id];
-          const draft = drafts[platform.id] ?? "";
-          const saving = busy === platform.id;
-          const unchanged = profile?.handle === draft.trim();
+      {adding && selected && (
+        <form className="composer link-form" onSubmit={handleAdd}>
+          <select
+            value={selected.id}
+            onChange={(event) => setChoice(event.target.value)}
+            aria-label="Platform"
+          >
+            {available.map((platform) => (
+              <option key={platform.id} value={platform.id}>
+                {platform.label}
+              </option>
+            ))}
+          </select>
 
-          return (
-            <form
-              key={platform.id}
-              className={`profile-row${profile ? " profile-row-linked" : ""}`}
-              onSubmit={(event) => handleSave(event, platform.id)}
-            >
-              <span className="profile-label">{platform.label}</span>
+          <input
+            value={handle}
+            onChange={(event) => setHandle(event.target.value)}
+            placeholder={selected.placeholder}
+            aria-label={`${selected.label} handle`}
+            autoFocus
+          />
 
-              <input
-                value={draft}
-                placeholder={platform.placeholder}
-                aria-label={`${platform.label} handle`}
-                onChange={(event) =>
-                  setDrafts((current) => ({ ...current, [platform.id]: event.target.value }))
-                }
-              />
+          <button type="submit" className="button" disabled={Boolean(busy) || !handle.trim()}>
+            {busy ? "Linking…" : "Link"}
+          </button>
+          <button type="button" className="button button-ghost" onClick={() => setAdding(false)}>
+            Cancel
+          </button>
 
-              {profile && (
-                <p className={`profile-note${profile.lastSyncError ? " profile-note-error" : ""}`}>
-                  {profile.lastSyncError
-                    ? `Last sync failed: ${profile.lastSyncError}`
-                    : profile.lastSyncedAt
-                      ? `Last synced ${formatWhen(profile.lastSyncedAt)}`
-                      : "Not synced yet — hit Sync on the dashboard."}
-                </p>
-              )}
+          <p className="muted small link-hint">{selected.hint}</p>
+        </form>
+      )}
+
+      {linked.length === 0 ? (
+        <p className="empty">
+          Link a handle and any task tagged with that platform starts proving itself.
+        </p>
+      ) : (
+        <div className="profile-list">
+          {linked.map((profile) => (
+            <div key={profile.platform} className="profile-row">
+              <PlatformIcon platform={profile.platform} title={profile.label} />
+
+              <div className="profile-detail">
+                <span className="profile-label">{profile.label}</span>
+                <span className="muted small">@{profile.handle}</span>
+              </div>
+
+              <p className={`profile-note${profile.lastSyncError ? " profile-note-error" : ""}`}>
+                {profile.lastSyncError
+                  ? `Last sync failed: ${profile.lastSyncError}`
+                  : profile.lastSyncedAt
+                    ? `Synced ${formatWhen(profile.lastSyncedAt)}`
+                    : "Not synced yet"}
+              </p>
 
               <div className="profile-actions">
-                <button type="submit" className="button" disabled={saving || !draft.trim() || unchanged}>
-                  {saving ? "…" : profile ? "Update" : "Link"}
-                </button>
-                {profile && (
-                  <>
-                    {profile.url && (
-                      <a href={profile.url} target="_blank" rel="noreferrer" className="profile-open">
-                        Open ↗
-                      </a>
-                    )}
-                    <button
-                      type="button"
-                      className="link-button danger"
-                      onClick={() => handleUnlink(platform.id)}
-                      disabled={saving}
-                    >
-                      Unlink
-                    </button>
-                  </>
+                {profile.url && (
+                  <a
+                    href={profile.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="icon-button icon-button-sm"
+                    aria-label={`Open ${profile.handle} on ${profile.label}`}
+                    title="Open profile"
+                  >
+                    <ExternalLink size={15} strokeWidth={1.9} aria-hidden="true" />
+                  </a>
                 )}
+                <button
+                  type="button"
+                  className="icon-button icon-button-sm danger"
+                  onClick={() => handleUnlink(profile.platform, profile.label)}
+                  disabled={busy === profile.platform}
+                  aria-label={`Unlink ${profile.label}`}
+                  title="Unlink"
+                >
+                  <Trash2 size={15} strokeWidth={1.9} aria-hidden="true" />
+                </button>
               </div>
-            </form>
-          );
-        })}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

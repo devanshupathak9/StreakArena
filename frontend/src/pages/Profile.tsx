@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type Dashboard } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-import Avatar from "../components/Avatar";
+import AvatarPicker from "../components/AvatarPicker";
 import LinkedProfiles from "../components/LinkedProfiles";
 
 const timezones =
@@ -54,7 +54,10 @@ export default function Profile() {
     setError("");
     setBusy(true);
     try {
-      setUser(await api.updateProfile(form));
+      // avatarUrl is owned by the picker above; sending the form's copy would
+      // blank a freshly uploaded picture.
+      const { avatarUrl: _ignored, ...fields } = form;
+      setUser(await api.updateProfile(fields));
       setMessage("Profile saved.");
       setEditing(false);
     } catch (err) {
@@ -71,12 +74,7 @@ export default function Profile() {
   return (
     <div className="stack">
       <section className="card profile-header">
-        <Avatar
-          username={user.username}
-          displayName={user.displayName}
-          avatarUrl={user.avatarUrl}
-          size={84}
-        />
+        <AvatarPicker />
 
         <div className="profile-identity">
           <h1>{user.displayName || user.username}</h1>
@@ -101,7 +99,7 @@ export default function Profile() {
         </div>
 
         {!editing && (
-          <button type="button" className="button button-secondary" onClick={startEditing}>
+          <button type="button" className="button button-ghost" onClick={startEditing}>
             Edit profile
           </button>
         )}
@@ -198,20 +196,6 @@ export default function Profile() {
                 </select>
               </label>
             </div>
-
-            <label>
-              Avatar image URL
-              <input
-                value={form.avatarUrl}
-                onChange={(event) => set("avatarUrl")(event.target.value)}
-                placeholder="https://github.com/yourname.png"
-                maxLength={300}
-              />
-            </label>
-            <p className="muted small">
-              Leave it empty for generated initials. If you're on GitHub,{" "}
-              <code>https://github.com/yourname.png</code> is already a picture of you.
-            </p>
 
             <p className="muted small">
               Your day rolls over at midnight in your timezone — that's what decides whether a
