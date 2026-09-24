@@ -5,8 +5,8 @@ description: Design, build or restyle StreakArena's sidebar / app navigation (Da
 
 # StreakArena navigation
 
-The structure is fixed by `.claude/design/ui-spec.md` (Prompt 0) and
-`.claude/design/reference.png`. Read those first.
+The structure is fixed by `docs/ui-spec.md` (Prompt 0) and
+`docs/images/reference.png`. Read those first.
 
 - **240px sidebar**, `--nav-bg`, right border. Flame icon + "StreakArena" at the top.
 - **Five items, in this order:** Dashboard (Home), Tasks (SquareCheck), Groups (Users),

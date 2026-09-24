@@ -44,15 +44,15 @@ leave.
 | `streak.js` | timezone → calendar date, current/longest streak, date helpers |
 | `platforms.js` | the catalog: label, handle pattern, profile-URL template |
 | `sync.js` | one adapter per platform: *which days was this handle active?* |
-| `routes/` | `auth`, `profiles`, `tasks` (incl. sync), `groups`, `global` |
+| `routes/` | `auth`, `profiles`, `tasks` (incl. sync), `groups`, `global` (served at `/leaderboard`) |
 
 Authorisation is a `where` clause, not a check: every query is scoped by `userId`, so another
 user's id matches nothing rather than being caught by an `if`.
 
 `sync.js` adapters all return `Set<YYYY-MM-DD>` and throw user-facing messages. The route catches
-per platform, so one broken endpoint reports itself and the others still run. Only Codeforces and
-Chess.com are documented, supported APIs; GitHub is official but wants a token for the good
-endpoint; LeetCode and Duolingo are undocumented and expected to break.
+per platform, so one broken endpoint reports itself and the others still run. Nine platforms sync;
+their individual caveats — which are documented, which are undocumented, which rely on a community
+mirror — are in [platforms.md](platforms.md).
 
 ## Frontend (`frontend/src`, React + TS + Vite)
 
@@ -60,8 +60,12 @@ endpoint; LeetCode and Duolingo are undocumented and expected to break.
 App.tsx            signed out → split auth screen; signed in → sidebar + content
 context/Auth       session restored from the cookie on mount
 lib/api.ts         one typed fetch wrapper; every call goes through it
-components/        Sidebar, Avatar, TaskRow, StreakTiles, Heatmap, LinkedProfiles, Toasts, Footer
-pages/             Dashboard, Groups, GroupDetail, Global, Profile, About, Login, Register
+context/AppData    dashboard + groups, fetched once and shared so the nav adds no requests
+components/nav/    Sidebar, GroupTree, TopBar, AccountRow, MobileTabBar
+components/ui/     PlatformIcon, WeekStrip, ProgressRing, PillTabs, Scenery
+components/        Hero, StatRow, Heatmap, TodayProgress, TaskPanel, TaskRow, ActivityFeed
+pages/             Dashboard, Tasks, Groups, GroupDetail, Leaderboard, Profile, About,
+                   Login, Register
 ```
 
 `GET /api/dashboard` returns tasks, streaks, tiles, linked profiles and the 90-day heatmap in a

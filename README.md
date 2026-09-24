@@ -1,10 +1,15 @@
 # StreakArena
 
-A habit and task streak tracker — set daily tasks, build streaks, and visualize your progress over time.
+Streak tracking with proof. Link your public handles on nine sites, tag a task with one, and
+**Sync** reads your real activity back — so a streak is evidence rather than self-report. Race
+your friends on the same challenges in groups.
 
-This is **v1**: register, log in, link your handles on the sites you practise on, create daily tasks,
-mark them done, and watch your streak tiles fill up. Groups, leaderboards, daily points and automatic
-verification come later — the data model already leaves room for them.
+Register, link your handles, create daily tasks, and watch the tiles fill. Platform-backed
+tasks prove themselves; anything without an API keeps a manual button.
+
+**Docs:** [architecture](docs/architecture.md) · [platforms](docs/platforms.md) ·
+[UI spec](docs/ui-spec.md) · [infrastructure](infra/README.md) ·
+[working notes](CLAUDE.md)
 
 ## Deploying
 
@@ -58,21 +63,27 @@ A task can be tagged with a platform. Link your handle once in **Profile → Lin
 two things happen: the task grows a badge that opens your profile there, and **Sync** reads your
 real activity back, so a streak is evidence rather than self-report.
 
-| Platform | How a day is counted | Source |
-| --- | --- | --- |
-| GitHub | Any day with contributions | Official GraphQL calendar with a token; public events without one |
-| LeetCode | Any day you submitted | Undocumented GraphQL endpoint |
-| Codeforces | Any day you submitted, solved or not | Official public API |
-| Chess.com | Any day you finished a game | Official public API |
-| Duolingo | The days in your current streak | Undocumented endpoint |
+| Platform | A day counts when you… |
+| --- | --- |
+| GitHub | Have a contribution |
+| GitLab | Push, open an MR, file an issue |
+| LeetCode | Submit a solution |
+| Codeforces | Submit, solved or not |
+| Codewars | Complete a kata |
+| AtCoder | Submit |
+| Chess.com | Finish a game |
+| Lichess | Finish a game |
+| Duolingo | Keep your streak alive |
 
 Sync is **additive**. A day you ticked yourself is never touched, and a day a platform stops
 reporting is left alone rather than revoked — sync can add to your record but not quietly rewrite
 it. Each platform is fetched once per sync, not once per task, and one platform failing doesn't
 stop the others: the failure is reported next to that handle and remembered in `lastSyncError`.
 
-Only Codeforces and Chess.com publish supported APIs for this. LeetCode's and Duolingo's are
-undocumented and can change without notice, which is why every adapter is wrapped.
+Most of these publish supported APIs. LeetCode's and Duolingo's are undocumented, and AtCoder
+has none at all so a community mirror stands in — which is why every adapter is wrapped.
+[docs/platforms.md](docs/platforms.md) has the caveats for each, and what was looked at and
+rejected.
 
 ### GitHub token (optional but worth it)
 
@@ -89,58 +100,6 @@ docker compose up -d
 ```
 
 ## Profile
-
-Name, bio, location and an avatar, all optional — an account works with none of them set.
-The avatar is an image URL rather than an upload, so there's no file storage to run; leave it
-empty and you get generated initials on a colour derived from your username, which stays the same
-everywhere you appear. If you're on GitHub, `https://github.com/yourname.png` is already a picture
-of you.
-
-The URL is validated for scheme before it's stored, because it ends up in an `<img src>` that
-everyone signed in can see — `javascript:` and `data:` are rejected. A URL that later breaks falls
-back to initials rather than showing a broken image.
-
-## Global dashboard
-
-Everyone on this server, ranked by their longest running streak, with totals across the whole
-site. Reachable from the footer, or at `/global`.
-
-Ranking reads every user's completions and folds them in JS rather than aggregating in SQL,
-because each streak is measured against today in that user's own timezone. That's fine at this
-size; when it stops being fine the fix is a nightly snapshot table, not a cleverer query — the
-numbers only change once a day.
-
-Your username, display name and avatar are visible to anyone signed in. Your email never is.
-
-## Groups
-
-Create a group, share its six-character invite code, and everyone races the same challenges.
-
-A group **challenge** is a shared definition — a title plus an optional platform. Each member
-tracks it through their own ordinary `Task`, which is why streaks, tiles and platform sync keep
-working inside a group with no special cases: the group only decides what everyone is racing on.
-Joining backfills a personal task for every challenge already there, so a late joiner starts
-immediately rather than on the next one created.
-
-Chat takes **attachments** — images, PDFs and text files up to 5 MB. The bytes go to a mounted
-volume rather than into Postgres, the stored filename is a random UUID so a client-supplied name
-can't decide where anything lands, and every download goes through a route that re-checks group
-membership and forces `Content-Disposition: attachment`. Nothing a member uploads can execute in
-another member's origin.
-
-Each group has a **chat**, polled on a cursor so an idle window costs one empty array rather
-than the whole history. Messages belong to the group rather than to a membership, so someone
-leaving doesn't blank out half a conversation for everyone still reading it.
-
-The leaderboard ranks members by their **combined live streaks** — today's form, not lifetime
-totals — and each member's streak is measured against today in *their own* timezone, so nobody
-looks behind just because they're east of everyone else.
-
-Nothing in a group can delete your history. Leaving a group, removing a challenge, or the owner
-deleting the group all just detach your task (`groupTaskId` goes null) and leave it as a personal
-task with its streak intact.
-
-## How streaks work## Profile
 
 Name, bio, location and an avatar, all optional — an account works with none of them set.
 The avatar is an image URL rather than an upload, so there's no file storage to run; leave it
@@ -226,13 +185,24 @@ backend/
     routes/profiles.js    the platform catalog + linking handles
     routes/groups.js      groups, challenges, membership, leaderboard
     routes/global.js      the site-wide leaderboard
-    routes/tasks.js       dashboard, task CRUD, complete/uncomplete
+    routes/tasks.js       dashboard, task CRUD, complete/uncomplete, sync
+    uploads.js            chat attachments: disk locally, S3 when a bucket is set
 frontend/src/
   context/AuthContext.tsx session state, restored from the cookie on load
+  context/AppData.tsx     dashboard + groups, shared so the nav adds no requests
   lib/api.ts              typed fetch wrapper
-  components/             Heatmap, TaskRow, StreakTiles, TaskForm, LinkedProfiles,
-                          Avatar, Toasts, Nav, Footer
-  pages/                  Login, Register, Dashboard, Groups, GroupDetail, Global, Profile
+  lib/week.ts             the seven days of this week, for the strip and its count
+  lib/categories.ts       which filter pill a task falls under
+  hooks/useTaskActions.ts everything the dashboard and tasks page both do to a task
+  assets/                 the hero artwork, as two WebP crops
+  components/ui/          PlatformIcon, WeekStrip, ProgressRing, PillTabs, Scenery
+  components/nav/         Sidebar, GroupTree, TopBar, AccountRow, MobileTabBar
+  components/             Hero, StatRow, Heatmap, TodayProgress, TaskPanel, TaskRow,
+                          ActivityFeed, QuoteTile, GroupChat, MonthTiles, Avatar
+  pages/                  Login, Register, Dashboard, Tasks, Groups, GroupDetail,
+                          Leaderboard, Profile, About
+docs/                     architecture, platforms, the UI spec, and the source images
+infra/terraform/          ECS, RDS, S3, CloudFront — never applied
 ```
 
 ## API

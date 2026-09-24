@@ -1,11 +1,13 @@
 # StreakArena — working notes
 
-A centralised streak tracker. You link your public handles (GitHub, LeetCode, Codeforces,
-Chess.com, Duolingo), tag tasks with a platform, and **sync** reads your real activity back — so a
-streak is evidence rather than self-report. Groups let friends race the same challenges.
+A centralised streak tracker. You link your public handles on nine sites (GitHub, GitLab,
+LeetCode, Codeforces, Codewars, AtCoder, Chess.com, Lichess, Duolingo), tag tasks with a
+platform, and **sync** reads your real activity back — so a streak is evidence rather than
+self-report. Groups let friends race the same challenges.
 
-Read `ARCHITECTURE.md` for how the pieces fit. This file is the stuff you'd otherwise have to
-learn by breaking something.
+`docs/` holds the reference material: `architecture.md` for how the pieces fit,
+`platforms.md` for what each adapter reads, `ui-spec.md` for the design. This file is the
+stuff you'd otherwise learn by breaking something.
 
 ## Running it
 
@@ -80,9 +82,9 @@ instead run `cd backend && npm run dev` against the same database (it's publishe
 
 ## Before touching the frontend
 
-The design is **specified, not open**. Read `.claude/design/ui-spec.md` (the user's own
-build spec) and `.claude/design/reference.png` (the mockup it came from) before changing
-any screen. `.claude/skills/streakarena-ui/SKILL.md` and `streakarena-sidebar/SKILL.md`
+The design is **specified, not open**. Read `docs/ui-spec.md` (the user's own build
+spec) and `docs/images/reference.png` (the mockup it came from) before changing any
+screen. `.claude/skills/streakarena-ui/SKILL.md` and `streakarena-sidebar/SKILL.md`
 record what carries over that the spec doesn't state.
 
 An earlier brief described the UI as a bordered standings board with no hero, no cards and

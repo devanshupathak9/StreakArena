@@ -5,8 +5,8 @@ description: Design and restyle StreakArena's React frontend (dashboard, tasks, 
 
 # StreakArena UI
 
-**The design is specified, not open.** Read `.claude/design/ui-spec.md` — the user's own
-build spec — and `.claude/design/reference.png`, the mockup it was written from. Those two
+**The design is specified, not open.** Read `docs/ui-spec.md` — the user's own build
+spec — and `docs/images/reference.png`, the mockup it was written from. Those two
 files are the source of truth for every screen. This file only records what carries over.
 
 An earlier version of this skill described StreakArena as a bordered "contest standings
