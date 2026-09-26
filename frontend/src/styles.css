@@ -945,28 +945,6 @@ textarea:focus-visible {
   width: 180px;
 }
 
-/* ============================================================
-   Search field
-   ============================================================ */
-
-.search-field {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius);
-  background: var(--bg-inset);
-  box-shadow: inset 0 0 0 1px var(--border);
-  color: var(--text-dim);
-}
-.search-field input {
-  border: 0;
-  background: none;
-  padding-left: 0;
-}
-.search-field input:focus-visible {
-  box-shadow: none;
-}
 
 .tabbar {
   display: none;
@@ -1986,51 +1964,9 @@ a.stat-card:hover {
   font-weight: 500;
 }
 
-/* ============================================================
-   Groups
-   ============================================================ */
 
-.group-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--space-4);
-}
 
-.group-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
 
-.group-cover {
-  position: relative;
-  height: 96px;
-  overflow: hidden;
-}
-.group-cover::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, transparent 55%, var(--surface) 100%);
-}
-
-.group-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-5);
-  margin-top: -32px;
-  position: relative;
-}
-.group-card-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
 .group-avatar {
   display: inline-flex;
   align-items: center;
@@ -2048,17 +1984,266 @@ a.stat-card:hover {
   height: 64px;
   border-radius: var(--radius-lg);
 }
-.group-card-note {
-  font-size: var(--step--1);
-  color: var(--text-2);
-  min-height: 2.6em;
+
+/* The section is a directory that stays put and a group that changes beside it,
+   so switching groups never costs you the list. */
+.groups-shell {
+  display: grid;
+  grid-template-columns: 268px minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
 }
-.group-card-foot {
+
+.group-directory {
+  position: sticky;
+  top: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.directory-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-2);
+}
+.directory-head h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--step-1);
+}
+.directory-head-sub {
+  margin-top: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.directory-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.directory-item {
+  display: flex;
+  align-items: center;
   gap: var(--space-3);
-  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+  transition: background var(--transition), color var(--transition),
+    box-shadow var(--transition);
+}
+.directory-item:hover {
+  background: var(--bg-inset);
+  color: var(--text);
+  text-decoration: none;
+}
+/* The group you're reading: blue edge, lifted background, no ambiguity. */
+.directory-item.is-active {
+  background: var(--accent-wash);
+  color: var(--text);
+  box-shadow: inset 2px 0 0 var(--accent), inset 0 0 0 1px var(--accent);
+}
+.directory-item.is-static {
+  cursor: default;
+}
+.directory-item.is-static:hover {
+  background: none;
+  color: var(--text-2);
+}
+
+.directory-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--accent-text);
+}
+.directory-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.directory-name {
+  font-size: var(--step-0);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.directory-empty {
+  padding: var(--space-3) 0;
+}
+
+.group-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.group-tabs {
+  overflow-x: auto;
+}
+
+.group-landing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-5);
+}
+
+.banner-tagline {
+  margin-top: var(--space-1);
+  color: var(--text-2);
+  font-size: var(--step-0);
+  max-width: 52ch;
+}
+
+/* ---------- The group task table ---------- */
+
+.challenge-table {
+  --challenge-cols: minmax(0, 1fr) 110px 120px 92px 40px;
+}
+.challenge-head-row {
+  display: grid;
+  grid-template-columns: var(--challenge-cols);
+  gap: var(--space-3);
+  padding: 0 var(--space-4) var(--space-3);
+  font-size: var(--step--2);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-3);
+}
+.challenge-table .challenge-row {
+  display: grid;
+  grid-template-columns: var(--challenge-cols);
+  gap: var(--space-3);
+  align-items: center;
+}
+.challenge-cell {
+  min-width: 0;
+}
+.challenge-cell-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.challenge-cell-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.challenge-cell-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+/* A challenge most of the group is missing reads as a warning, not a success. */
+.bar-fill.is-low {
+  background: var(--warning);
+}
+
+.chip-owner {
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 45%, transparent);
+  color: var(--gold);
+}
+
+.member-avatar {
+  position: relative;
+  flex-shrink: 0;
+  line-height: 0;
+}
+.presence {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  background: var(--self);
+}
+.presence.is-active {
+  background: var(--verdict);
+}
+
+/* ---------- Radio choices ---------- */
+
+.choice-set {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.choice-set legend {
+  padding: 0 0 var(--space-2);
+  font-size: var(--step--1);
+  color: var(--text-2);
+}
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+  box-shadow: inset 0 0 0 1px var(--border);
+  cursor: pointer;
+  transition: box-shadow var(--transition), background var(--transition);
+}
+.choice:hover {
+  background: var(--surface-2);
+}
+.choice.is-picked {
+  background: var(--accent-wash);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.choice input {
+  width: auto;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+.choice svg {
+  margin-top: 1px;
+  flex-shrink: 0;
+  color: var(--text-2);
+}
+.choice > span {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.danger-button {
+  color: var(--danger);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 45%, transparent);
+}
+.danger-button:hover:not(:disabled) {
+  background: var(--danger-wash);
+  color: var(--danger);
+}
+
+.modal-sm {
+  max-width: 400px;
 }
 
 .group-banner {
@@ -2083,11 +2268,6 @@ a.stat-card:hover {
     ),
     linear-gradient(180deg, rgb(10 14 23 / 0.45) 0%, transparent 40%, rgb(10 14 23 / 0.85) 100%);
 }
-.banner-back {
-  position: absolute;
-  top: var(--space-4);
-  left: var(--space-4);
-}
 .banner-actions {
   position: absolute;
   top: var(--space-4);
@@ -2095,13 +2275,6 @@ a.stat-card:hover {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-}
-.banner-menu {
-  top: calc(100% + var(--space-2));
-  bottom: auto;
-  left: auto;
-  right: 0;
-  width: 170px;
 }
 .banner-identity {
   position: relative;
@@ -2443,54 +2616,295 @@ a.stat-card:hover {
 }
 
 /* ============================================================
-   Profile, about, auth
+   Profile page
    ============================================================ */
 
-.profile-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  flex-wrap: wrap;
+.profile-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  padding: var(--space-7) var(--space-7) var(--space-6);
+  isolation: isolate;
 }
+.profile-hero-body {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-6);
+}
+
+.profile-portrait {
+  position: relative;
+  flex-shrink: 0;
+}
+/* The ring is flame only when a platform has actually verified a day — it means
+   something, so it can't be decoration on every avatar. */
+.portrait-ring {
+  display: block;
+  padding: 3px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  line-height: 0;
+}
+.portrait-ring.is-verified {
+  background: var(--flame-gradient);
+  box-shadow: 0 0 0 1px rgb(249 115 22 / 0.35), 0 6px 24px -6px rgb(249 115 22 / 0.5);
+}
+.portrait-edit {
+  position: absolute;
+  right: 0;
+  bottom: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.portrait-edit:hover {
+  background: var(--accent-hover);
+}
+
 .profile-identity {
+  flex: 1;
   min-width: 0;
 }
-.profile-bio {
-  margin-top: var(--space-2);
-  color: var(--text-2);
-  max-width: 62ch;
+.profile-identity h1 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--step-4);
 }
-.profile-facts {
+.verified-mark {
+  display: inline-flex;
+  color: var(--accent-text);
+}
+.profile-handle {
+  color: var(--text-2);
+  font-size: var(--step-0);
+}
+.profile-bio {
+  margin-top: var(--space-3);
+  max-width: 54ch;
+  color: var(--text-2);
+}
+
+.profile-meta {
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-4);
-  margin-top: var(--space-3);
+  gap: var(--space-2) var(--space-5);
   font-size: var(--step--1);
-  color: var(--text-dim);
+  color: var(--text-2);
 }
-.profile-actions {
-  margin-left: auto;
+.profile-meta li {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
 }
-.profile-row {
+
+.profile-hero-side {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+/* ---------- Stats row extras ---------- */
+
+.stat-icon-groups {
+  background: color-mix(in srgb, #8b5cf6 20%, transparent);
+  color: #c4b5fd;
+}
+.stat-icon-gold {
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+  color: var(--gold);
+}
+
+/* ---------- The two profile rows ---------- */
+
+.profile-grid {
   display: grid;
-  grid-template-columns: auto 160px 1fr auto;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.profile-grid > * {
+  min-width: 0;
+}
+
+.head-title {
+  display: flex;
   align-items: center;
+  gap: var(--space-2);
+}
+.flame-tint {
+  color: var(--flame);
+}
+.accent-tint {
+  color: var(--accent-text);
+}
+.gold-tint {
+  color: var(--gold);
+}
+
+/* ---------- Streak progress ---------- */
+
+.streak-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-6);
+  align-items: center;
+}
+.streak-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+.streak-checklist {
+  border-left: 1px solid var(--border);
+  padding-left: var(--space-5);
+}
+
+.streak-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding-left: var(--space-5);
+  border-left: 1px solid var(--border);
+  min-width: 168px;
+}
+.streak-metrics div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.streak-metrics dt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--step--1);
+  color: var(--text-2);
+}
+.streak-metrics dd {
+  margin: 0;
+  font-size: var(--step-3);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+/* ---------- About me ---------- */
+
+.about-rows {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-3);
+  margin: 0;
+}
+.about-row {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+}
+.about-row dt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+.about-row dd {
+  margin: 0;
+  font-size: var(--step-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.about-wrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Linked accounts ---------- */
+
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: var(--space-3);
+}
+.account-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
   border-radius: var(--radius-md);
   background: var(--bg-inset);
   box-shadow: inset 0 0 0 1px var(--border);
 }
-.profile-detail {
+.account-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.account-name {
   display: flex;
   flex-direction: column;
   gap: 1px;
   min-width: 0;
 }
+.account-name .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-status {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--step--2);
+  font-weight: 600;
+}
+.account-status.is-live {
+  background: color-mix(in srgb, var(--verdict) 16%, transparent);
+  color: var(--verdict);
+}
+.account-status.is-failing {
+  background: var(--warning-wash);
+  color: var(--warning);
+}
+
+.account-actions {
+  display: flex;
+  gap: var(--space-1);
+  margin-top: auto;
+  padding-top: var(--space-1);
+}
+
+.profile-label {
+  font-size: var(--step-0);
+  font-weight: 600;
+}
+.profile-note {
+  font-size: var(--step--2);
+  color: var(--muted);
+}
 .profile-note-error {
-  color: var(--danger);
+  color: var(--warning);
 }
 
 .link-form {
@@ -2511,11 +2925,13 @@ a.stat-card:hover {
   flex-basis: 100%;
 }
 
-/* The picture and its controls, side by side, at the head of the profile card. */
+/* ---------- Avatar picker ---------- */
+
 .avatar-picker {
   display: flex;
   align-items: center;
   gap: var(--space-4);
+  margin-bottom: var(--space-5);
 }
 .avatar-slot {
   line-height: 0;
@@ -2536,68 +2952,99 @@ a.stat-card:hover {
 .avatar-controls .error {
   flex-basis: 100%;
 }
-.profile-list {
+
+/* ---------- Achievements ---------- */
+
+.badge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--space-3);
+}
+.badge-tile {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-}
-.profile-label {
-  display: flex;
   align-items: center;
-  gap: var(--space-2);
-  font-weight: 600;
-  font-size: var(--step--1);
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+  box-shadow: inset 0 0 0 1px var(--border);
+  text-align: center;
 }
-.profile-note {
-  font-size: var(--step--1);
+/* Locked badges stay on the board so the goal is visible, but they're clearly not
+   yours yet — a greyed badge is information, a hidden one isn't. */
+.badge-tile:not(.is-earned) {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+.badge-medal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  margin-bottom: var(--space-1);
+}
+.badge-flame .badge-medal {
+  background: color-mix(in srgb, var(--flame) 18%, transparent);
+  color: var(--flame);
+}
+.badge-verdict .badge-medal {
+  background: color-mix(in srgb, var(--verdict) 18%, transparent);
+  color: var(--verdict);
+}
+.badge-accent .badge-medal {
+  background: var(--accent-wash);
+  color: var(--accent-text);
+}
+.badge-gold .badge-medal {
+  background: color-mix(in srgb, var(--gold) 18%, transparent);
+  color: var(--gold);
+}
+.badge-tile.is-earned .badge-medal {
+  box-shadow: 0 0 18px -4px currentColor;
+}
+.badge-title {
+  font-size: var(--step-0);
+  font-weight: 700;
+  line-height: 1.1;
+}
+.badge-subtitle {
+  font-size: var(--step--2);
   color: var(--muted);
 }
+
+/* ---------- Modal ---------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: rgb(4 6 11 / 0.72);
+  overflow-y: auto;
+}
+.modal {
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100vh - var(--space-8));
+  overflow-y: auto;
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border-strong), var(--shadow-lg);
+}
+.modal-form {
+  gap: var(--space-3);
+}
+
 .field-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--space-3);
-}
-
-.figures,
-.standing-figures {
-  display: flex;
-  gap: var(--space-7);
-  flex-wrap: wrap;
-  margin: 0;
-}
-.figures div,
-.standing-figures div {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.figures dt,
-.standing-figures dt {
-  font-size: var(--step--1);
-  color: var(--text-dim);
-}
-.figures dd,
-.standing-figures dd {
-  margin: 0;
-  font-size: var(--step-3);
-  font-weight: 700;
-}
-.standing {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-8);
-  flex-wrap: wrap;
-}
-.streak-block {
-  display: flex;
-  flex-direction: column;
-}
-.streak-display {
-  font-size: var(--step-display);
-  font-weight: 800;
-  line-height: 0.95;
-  color: var(--flame);
-  letter-spacing: -0.03em;
 }
 
 .about-grid {
@@ -2795,10 +3242,46 @@ a.stat-card:hover {
 
 /* Tablet: stack the analytics row rather than letting the heatmap shrink past
    the point where a cell is readable. */
+@media (max-width: 1240px) {
+  /* The directory folds into a strip above the group rather than squeezing it. */
+  .groups-shell {
+    grid-template-columns: 1fr;
+  }
+  .group-directory {
+    position: static;
+  }
+}
+
 @media (max-width: 1100px) {
   .analytics-row,
-  .group-overview {
+  .group-overview,
+  .profile-grid {
     grid-template-columns: 1fr;
+  }
+  .challenge-table {
+    --challenge-cols: minmax(0, 1fr) 96px 88px 40px;
+  }
+  .challenge-head-row span:nth-child(2),
+  .challenge-row > .muted.small {
+    display: none;
+  }
+  /* The metrics column drops under the ring and the checklist rather than
+     squeezing all three into a third of the width each. */
+  .streak-body {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .streak-metrics {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-6);
+    padding-left: 0;
+    padding-top: var(--space-4);
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .streak-metrics div {
+    min-width: 130px;
   }
   .heatmap-wrap {
     max-width: 100%;
@@ -2866,11 +3349,26 @@ a.stat-card:hover {
     grid-column: 1;
     grid-row: 2;
   }
-  .profile-row {
+  /* The hero stacks: portrait, then who you are, then the actions. */
+  .profile-hero-body {
+    flex-direction: column;
+  }
+  .profile-hero-side {
+    align-items: flex-start;
+    width: 100%;
+  }
+  .streak-body {
     grid-template-columns: 1fr;
   }
-  .profile-actions {
-    margin-left: 0;
+  .streak-checklist {
+    border-left: 0;
+    padding-left: 0;
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border);
+  }
+  .about-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
 }
 

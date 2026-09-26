@@ -129,10 +129,24 @@ export type GroupSummary = {
   owedToday: boolean;
 };
 
+/** The group list, plus how many distinct people you share a group with. */
+export type GroupList = { groups: GroupSummary[]; peers: number };
+
 export type GroupChallenge = {
   id: string;
   title: string;
   platform: { id: string; label: string; emoji: string } | null;
+  /** Null once whoever suggested it has left the group. */
+  addedBy: string | null;
+};
+
+/** A public group you aren't in yet. */
+export type DiscoverableGroup = {
+  id: string;
+  name: string;
+  description: string | null;
+  memberCount: number;
+  challengeCount: number;
 };
 
 export type StandingEntry = {
@@ -171,7 +185,16 @@ export type GroupMessage = {
 };
 
 export type GroupDetail = {
-  group: { id: string; name: string; inviteCode: string; isOwner: boolean };
+  group: {
+    id: string;
+    name: string;
+    description: string | null;
+    visibility: "public" | "private";
+    inviteCode: string;
+    createdAt: string;
+    isOwner: boolean;
+    ownerId: string;
+  };
   challenges: GroupChallenge[];
   standings: Standing[];
 };
@@ -261,13 +284,28 @@ export const api = {
 
   global: () => request<GlobalBoard>("/global"),
 
-  groups: () => request<{ groups: GroupSummary[] }>("/groups").then((r) => r.groups),
+  groups: () => request<GroupList>("/groups"),
 
-  createGroup: (name: string) =>
+  createGroup: (input: { name: string; description?: string; visibility?: string }) =>
     request<{ group: { id: string; name: string; inviteCode: string } }>("/groups", {
       method: "POST",
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(input),
     }).then((r) => r.group),
+
+  updateGroup: (id: string, input: { name?: string; description?: string; visibility?: string }) =>
+    request<{ group: { id: string; name: string } }>(`/groups/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }).then((r) => r.group),
+
+  discoverGroups: () =>
+    request<{ groups: DiscoverableGroup[] }>("/groups/discover").then((r) => r.groups),
+
+  joinPublicGroup: (id: string) =>
+    request<{ group: { id: string; name: string }; alreadyMember?: boolean }>(
+      `/groups/${id}/join`,
+      { method: "POST" },
+    ),
 
   joinGroup: (code: string) =>
     request<{ group: { id: string; name: string }; alreadyMember?: boolean }>("/groups/join", {

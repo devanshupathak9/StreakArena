@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ExternalLink, Plus, Trash2 } from "lucide-react";
+import { Check, ExternalLink, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { api, type LinkedProfile, type Platform } from "../lib/api";
 import PlatformIcon from "./ui/PlatformIcon";
 import { formatWhen } from "../lib/dates";
@@ -70,18 +70,18 @@ export default function LinkedProfiles() {
     <section className="card">
       <div className="card-head">
         <div>
-          <h2>Linked profiles</h2>
+          <h2>Linked accounts</h2>
           <p className="muted small">
             {linked.length === 0
-              ? "Nothing linked yet"
-              : `${linked.length} of ${platforms.length} linked`}
+              ? "Nothing connected yet"
+              : `${linked.length} of ${platforms.length} connected`}
           </p>
         </div>
 
         {available.length > 0 && (
           <button type="button" className="button button-sm" onClick={() => setAdding(!adding)}>
             <Plus size={15} strokeWidth={2.6} aria-hidden="true" />
-            Link a platform
+            Connect a platform
           </button>
         )}
       </div>
@@ -126,25 +126,46 @@ export default function LinkedProfiles() {
           Link a handle and any task tagged with that platform starts proving itself.
         </p>
       ) : (
-        <div className="profile-list">
+        <div className="account-grid">
           {linked.map((profile) => (
-            <div key={profile.platform} className="profile-row">
-              <PlatformIcon platform={profile.platform} title={profile.label} />
-
-              <div className="profile-detail">
-                <span className="profile-label">{profile.label}</span>
-                <span className="muted small">@{profile.handle}</span>
+            <article key={profile.platform} className="account-card">
+              <div className="account-top">
+                <PlatformIcon platform={profile.platform} title={profile.label} />
+                <div className="account-name">
+                  <span className="profile-label">{profile.label}</span>
+                  <span className="muted small">@{profile.handle}</span>
+                </div>
               </div>
+
+              {/* Connected means a handle is stored. Whether it has ever proved a day
+                  is a different claim, so the sync line makes that one separately. */}
+              <span
+                className={
+                  profile.lastSyncError ? "account-status is-failing" : "account-status is-live"
+                }
+              >
+                {profile.lastSyncError ? (
+                  <>
+                    <RefreshCw size={12} strokeWidth={2.6} aria-hidden="true" />
+                    Sync failed
+                  </>
+                ) : (
+                  <>
+                    <Check size={12} strokeWidth={3} aria-hidden="true" />
+                    Connected
+                  </>
+                )}
+              </span>
 
               <p className={`profile-note${profile.lastSyncError ? " profile-note-error" : ""}`}>
                 {profile.lastSyncError
-                  ? `Last sync failed: ${profile.lastSyncError}`
+                  ? profile.lastSyncError
                   : profile.lastSyncedAt
                     ? `Synced ${formatWhen(profile.lastSyncedAt)}`
                     : "Not synced yet"}
               </p>
 
-              <div className="profile-actions">
+              <div className="account-actions">
                 {profile.url && (
                   <a
                     href={profile.url}
@@ -162,13 +183,13 @@ export default function LinkedProfiles() {
                   className="icon-button icon-button-sm danger"
                   onClick={() => handleUnlink(profile.platform, profile.label)}
                   disabled={busy === profile.platform}
-                  aria-label={`Unlink ${profile.label}`}
-                  title="Unlink"
+                  aria-label={`Disconnect ${profile.label}`}
+                  title="Disconnect"
                 >
                   <Trash2 size={15} strokeWidth={1.9} aria-hidden="true" />
                 </button>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       )}

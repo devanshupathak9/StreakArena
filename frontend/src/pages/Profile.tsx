@@ -1,222 +1,70 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { api, type Dashboard } from "../lib/api";
+import { useEffect, useState } from "react";
+import { api } from "../lib/api";
+import { achievementsFor } from "../lib/achievements";
+import { useAppData } from "../context/AppData";
 import { useAuth } from "../context/AuthContext";
-import AvatarPicker from "../components/AvatarPicker";
 import LinkedProfiles from "../components/LinkedProfiles";
-
-const timezones =
-  typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
+import ProfileEditor from "../components/ProfileEditor";
+import AboutMe from "../components/profile/AboutMe";
+import Achievements from "../components/profile/Achievements";
+import ProfileHero from "../components/profile/ProfileHero";
+import ProfileStats from "../components/profile/ProfileStats";
+import StreakProgress from "../components/profile/StreakProgress";
 
 export default function Profile() {
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
+  const { dashboard, groups, peers } = useAppData();
+  const [rank, setRank] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({
-    username: user?.username ?? "",
-    displayName: user?.displayName ?? "",
-    bio: user?.bio ?? "",
-    location: user?.location ?? "",
-    avatarUrl: user?.avatarUrl ?? "",
-    timezone: user?.timezone ?? "UTC",
-  });
-  const [stats, setStats] = useState<Dashboard | null>(null);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.dashboard().then(setStats).catch(() => setStats(null));
+    // The only number on this page the shared context doesn't already hold.
+    api
+      .global()
+      .then((board) => setRank(board.yourRank))
+      .catch(() => setRank(null));
   }, [user]);
 
   if (!user) return null;
 
-  // Include the current timezone even if the browser doesn't list it.
-  const options = timezones.includes(form.timezone) ? timezones : [form.timezone, ...timezones];
-  const set = (field: keyof typeof form) => (value: string) =>
-    setForm((current) => ({ ...current, [field]: value }));
-
-  function startEditing() {
-    setForm({
-      username: user!.username,
-      displayName: user!.displayName ?? "",
-      bio: user!.bio ?? "",
-      location: user!.location ?? "",
-      avatarUrl: user!.avatarUrl ?? "",
-      timezone: user!.timezone,
-    });
-    setMessage("");
-    setError("");
-    setEditing(true);
-  }
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    setMessage("");
-    setError("");
-    setBusy(true);
-    try {
-      // avatarUrl is owned by the picker above; sending the form's copy would
-      // blank a freshly uploaded picture.
-      const { avatarUrl: _ignored, ...fields } = form;
-      setUser(await api.updateProfile(fields));
-      setMessage("Profile saved.");
-      setEditing(false);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const bestEver = stats?.tasks.reduce((max, task) => Math.max(max, task.longestStreak), 0) ?? 0;
-  const running = stats?.tasks.reduce((max, task) => Math.max(max, task.currentStreak), 0) ?? 0;
-  const totalDone = stats?.tasks.reduce((sum, task) => sum + task.totalDays, 0) ?? 0;
+  const tasks = dashboard?.tasks ?? [];
+  const streakDays = tasks.reduce((sum, task) => sum + task.totalDays, 0);
+  const verified = tasks.some((task) => task.syncedDays > 0);
+  const achievements = achievementsFor(dashboard, rank);
 
   return (
-    <div className="stack">
-      <section className="card profile-header">
-        <AvatarPicker />
+    <div className="dashboard">
+      <ProfileHero
+        user={user}
+        peers={peers}
+        verified={verified}
+        onEdit={() => setEditing(true)}
+        onEditPhoto={() => setEditing(true)}
+      />
 
-        <div className="profile-identity">
-          <h1>{user.displayName || user.username}</h1>
-          <p className="muted">@{user.username}</p>
-          {user.bio && <p className="profile-bio">{user.bio}</p>}
-          <dl className="profile-facts">
-            {user.location && (
-              <div>
-                <dt>Location</dt>
-                <dd>{user.location}</dd>
-              </div>
-            )}
-            <div>
-              <dt>Day rolls over</dt>
-              <dd>{user.timezone}</dd>
-            </div>
-            <div>
-              <dt>Joined</dt>
-              <dd>{new Date(user.createdAt).toLocaleDateString()}</dd>
-            </div>
-          </dl>
-        </div>
+      <ProfileStats
+        streakDays={streakDays}
+        tasksCompleted={streakDays}
+        globalRank={rank}
+        activeGroups={groups?.length ?? 0}
+        achievements={achievements.filter((a) => a.earned).length}
+      />
 
-        {!editing && (
-          <button type="button" className="button button-ghost" onClick={startEditing}>
-            Edit profile
-          </button>
+      <div className="profile-grid">
+        {dashboard ? (
+          <StreakProgress data={dashboard} />
+        ) : (
+          <div className="skeleton" style={{ height: 280, borderRadius: "var(--radius-lg)" }} />
         )}
-      </section>
+        <AboutMe user={user} peers={peers} onEdit={() => setEditing(true)} />
+      </div>
 
-      {message && <p className="success">{message}</p>}
+      <div className="profile-grid">
+        <LinkedProfiles />
+        <Achievements achievements={achievements} />
+      </div>
 
-      <section className="standing">
-        <div className="streak-block">
-          <span className="streak-display">{running}</span>
-          <span className="streak-caption">day{running === 1 ? "" : "s"} running right now</span>
-        </div>
-
-        <dl className="standing-figures">
-          <div>
-            <dt>Longest ever</dt>
-            <dd className="num">{bestEver}</dd>
-          </div>
-          <div>
-            <dt>Tasks</dt>
-            <dd className="num">{stats?.tasks.length ?? 0}</dd>
-          </div>
-          <div>
-            <dt>Days completed</dt>
-            <dd className="num">{totalDone}</dd>
-          </div>
-        </dl>
-      </section>
-
-      {editing && (
-        <section className="card">
-          <div className="card-head">
-            <h2>Edit profile</h2>
-            <button type="button" className="link-button" onClick={() => setEditing(false)}>
-              Cancel
-            </button>
-          </div>
-
-          <form className="stack" onSubmit={handleSubmit}>
-            <div className="field-row">
-              <label>
-                Name
-                <input
-                  value={form.displayName}
-                  onChange={(event) => set("displayName")(event.target.value)}
-                  placeholder="Devanshu Pathak"
-                  maxLength={50}
-                />
-              </label>
-
-              <label>
-                Username
-                <input
-                  value={form.username}
-                  onChange={(event) => set("username")(event.target.value)}
-                  required
-                />
-              </label>
-            </div>
-
-            <label>
-              Bio
-              <input
-                value={form.bio}
-                onChange={(event) => set("bio")(event.target.value)}
-                placeholder="What are you building a streak for?"
-                maxLength={160}
-              />
-            </label>
-            <p className="muted small">{160 - form.bio.length} characters left</p>
-
-            <div className="field-row">
-              <label>
-                Location
-                <input
-                  value={form.location}
-                  onChange={(event) => set("location")(event.target.value)}
-                  placeholder="India"
-                  maxLength={60}
-                />
-              </label>
-
-              <label>
-                Timezone
-                <select
-                  value={form.timezone}
-                  onChange={(event) => set("timezone")(event.target.value)}
-                >
-                  {options.map((zone) => (
-                    <option key={zone} value={zone}>
-                      {zone}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <p className="muted small">
-              Your day rolls over at midnight in your timezone — that's what decides whether a
-              streak survives.
-            </p>
-
-            {error && <p className="error">{error}</p>}
-
-            <div className="head-actions">
-              <button type="submit" className="button" disabled={busy}>
-                {busy ? "Saving…" : "Save changes"}
-              </button>
-              <button type="button" className="link-button" onClick={() => setEditing(false)}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        </section>
-      )}
-
-      <LinkedProfiles />
+      {editing && <ProfileEditor onClose={() => setEditing(false)} />}
     </div>
   );
 }

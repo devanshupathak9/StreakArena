@@ -5,6 +5,8 @@ import { useAuth } from "./AuthContext";
 type AppDataValue = {
   dashboard: Dashboard | null;
   groups: GroupSummary[] | null;
+  /** Distinct people you share a group with — null until the group list lands. */
+  peers: number | null;
   reloadDashboard: () => Promise<void>;
   reloadGroups: () => Promise<void>;
   setDashboard: (update: (current: Dashboard) => Dashboard) => void;
@@ -20,13 +22,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [dashboard, setDashboardState] = useState<Dashboard | null>(null);
   const [groups, setGroups] = useState<GroupSummary[] | null>(null);
+  const [peers, setPeers] = useState<number | null>(null);
 
   const reloadDashboard = useCallback(async () => {
     setDashboardState(await api.dashboard(90));
   }, []);
 
   const reloadGroups = useCallback(async () => {
-    setGroups(await api.groups());
+    const list = await api.groups();
+    setGroups(list.groups);
+    setPeers(list.peers);
   }, []);
 
   const setDashboard = useCallback((update: (current: Dashboard) => Dashboard) => {
@@ -37,6 +42,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (!user) {
       setDashboardState(null);
       setGroups(null);
+      setPeers(null);
       return;
     }
     void reloadDashboard().catch(() => setDashboardState(null));
@@ -45,7 +51,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppDataContext.Provider
-      value={{ dashboard, groups, reloadDashboard, reloadGroups, setDashboard }}
+      value={{ dashboard, groups, peers, reloadDashboard, reloadGroups, setDashboard }}
     >
       {children}
     </AppDataContext.Provider>

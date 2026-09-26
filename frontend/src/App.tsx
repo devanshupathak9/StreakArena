@@ -3,7 +3,6 @@ import MobileTabBar from "./components/nav/MobileTabBar";
 import Sidebar from "./components/nav/Sidebar";
 import About from "./pages/About";
 import Dashboard from "./pages/Dashboard";
-import GroupDetail from "./pages/GroupDetail";
 import Groups from "./pages/Groups";
 import Leaderboard from "./pages/Leaderboard";
 import Login from "./pages/Login";
@@ -39,7 +38,7 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/tasks" element={<Tasks />} />
               <Route path="/groups" element={<Groups />} />
-              <Route path="/groups/:id" element={<GroupDetail />} />
+              <Route path="/groups/:id" element={<Groups />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
               {/* The board used to live at /global; keep old links working. */}
               <Route path="/global" element={<Navigate to="/leaderboard" replace />} />
