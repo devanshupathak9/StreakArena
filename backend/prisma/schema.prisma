@@ -21,20 +21,27 @@ model User {
   location    String?
   avatarUrl   String?
 
-  tasks            Task[]
-  platformAccounts PlatformAccount[]
-  groupsCreated    Group[]           @relation("GroupsCreated")
-  memberships      GroupMember[]
-  messages         GroupMessage[]
+  tasks             Task[]
+  platformAccounts  PlatformAccount[]
+  groupsCreated     Group[]           @relation("GroupsCreated")
+  challengesCreated GroupTask[]       @relation("ChallengesCreated")
+  memberships       GroupMember[]
+  messages          GroupMessage[]
 }
 
 // A group of friends competing on the same daily challenges.
 model Group {
   id          String   @id @default(cuid())
   name        String
+  description String?
   inviteCode  String   @unique
   createdById String
   createdAt   DateTime @default(now())
+
+  // Private is the default and the safe one: a group is reachable only by its
+  // invite code until its owner deliberately lists it. Public groups appear in
+  // Discover and can be joined without a code.
+  visibility String @default("private")
 
   createdBy User           @relation("GroupsCreated", fields: [createdById], references: [id], onDelete: Cascade)
   members   GroupMember[]
@@ -88,8 +95,13 @@ model GroupTask {
   platform  String?
   createdAt DateTime @default(now())
 
-  group Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  tasks Task[]
+  // Who put this challenge on everyone's board. Nulled rather than cascaded if
+  // they leave, so the challenge survives the person who suggested it.
+  createdById String?
+
+  group     Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("ChallengesCreated", fields: [createdById], references: [id], onDelete: SetNull)
+  tasks     Task[]
 
   @@index([groupId])
 }
@@ -106,7 +118,7 @@ model PlatformAccount {
 
   // Sync bookkeeping: what the last check found, so the UI can say when it ran
   // and why it failed without re-running it.
-  lastSyncedAt DateTime?
+  lastSyncedAt  DateTime?
   lastSyncError String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -115,7 +127,7 @@ model PlatformAccount {
 }
 
 model Task {
-  id        String   @id @default(cuid())
+  id          String   @id @default(cuid())
   userId      String
   title       String
   description String?

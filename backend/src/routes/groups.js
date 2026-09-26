@@ -138,23 +138,139 @@ groupsRouter.get("/groups", async (req, res) => {
     };
   });
 
-  res.json({ groups });
+  // Who you actually race: everyone sharing at least one group with you, counted
+  // once however many groups you share. The members are already loaded above, so
+  // this is a fold rather than another query.
+  const peers = new Set();
+  for (const { group } of memberships) {
+    for (const member of group.members) {
+      if (member.userId !== req.user.id) peers.add(member.userId);
+    }
+  }
+
+  res.json({ groups, peers: peers.size });
 });
+
+const DESCRIPTION_MAX = 200;
+
+/** Anything not explicitly "public" stays private — a typo must not publish a group. */
+function readVisibility(value) {
+  return value === "public" ? "public" : "private";
+}
 
 groupsRouter.post("/groups", async (req, res) => {
   const name = String(req.body?.name ?? "").trim();
   if (!name) return res.status(400).json({ error: "Give the group a name" });
   if (name.length > 60) return res.status(400).json({ error: "Keep the name under 60 characters" });
 
+  const description = String(req.body?.description ?? "").trim();
+  if (description.length > DESCRIPTION_MAX) {
+    return res.status(400).json({ error: `Keep the description under ${DESCRIPTION_MAX} characters` });
+  }
+
   const group = await prisma.group.create({
     data: {
       name,
+      description: description || null,
+      visibility: readVisibility(req.body?.visibility),
       inviteCode: await uniqueCode(),
       createdById: req.user.id,
       members: { create: { userId: req.user.id } },
     },
   });
   res.status(201).json({ group: { id: group.id, name: group.name, inviteCode: group.inviteCode } });
+});
+
+/**
+ * Public groups you aren't already in. Declared before "/groups/:id" because
+ * Express matches in order and "discover" would otherwise be read as an id.
+ */
+groupsRouter.get("/groups/discover", async (req, res) => {
+  const mine = await prisma.groupMember.findMany({
+    where: { userId: req.user.id },
+    select: { groupId: true },
+  });
+
+  const groups = await prisma.group.findMany({
+    where: {
+      visibility: "public",
+      id: { notIn: mine.map((row) => row.groupId) },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 24,
+    include: { _count: { select: { members: true, tasks: true } } },
+  });
+
+  res.json({
+    groups: groups.map((group) => ({
+      id: group.id,
+      name: group.name,
+      description: group.description,
+      memberCount: group._count.members,
+      challengeCount: group._count.tasks,
+    })),
+  });
+});
+
+/** Edit the group. Owner only — this is the one place visibility can change. */
+groupsRouter.patch("/groups/:id", async (req, res) => {
+  const group = await prisma.group.findUnique({ where: { id: req.params.id } });
+  if (!group) return res.status(404).json({ error: "Group not found" });
+  if (group.createdById !== req.user.id) {
+    return res.status(403).json({ error: "Only the owner can change this group" });
+  }
+
+  const data = {};
+
+  if (req.body?.name !== undefined) {
+    const name = String(req.body.name).trim();
+    if (!name) return res.status(400).json({ error: "Give the group a name" });
+    if (name.length > 60) return res.status(400).json({ error: "Keep the name under 60 characters" });
+    data.name = name;
+  }
+
+  if (req.body?.description !== undefined) {
+    const description = String(req.body.description).trim();
+    if (description.length > DESCRIPTION_MAX) {
+      return res.status(400).json({ error: `Keep the description under ${DESCRIPTION_MAX} characters` });
+    }
+    data.description = description || null;
+  }
+
+  if (req.body?.visibility !== undefined) data.visibility = readVisibility(req.body.visibility);
+
+  const updated = Object.keys(data).length
+    ? await prisma.group.update({ where: { id: group.id }, data })
+    : group;
+
+  res.json({
+    group: {
+      id: updated.id,
+      name: updated.name,
+      description: updated.description,
+      visibility: updated.visibility,
+    },
+  });
+});
+
+/** Join a public group without a code. A private group still needs one. */
+groupsRouter.post("/groups/:id/join", async (req, res) => {
+  const group = await prisma.group.findUnique({ where: { id: req.params.id } });
+  // A private group answers exactly as a missing one does, so this can't be used
+  // to probe which ids exist.
+  if (!group || group.visibility !== "public") {
+    return res.status(404).json({ error: "Group not found" });
+  }
+
+  const existing = await prisma.groupMember.findUnique({
+    where: { groupId_userId: { groupId: group.id, userId: req.user.id } },
+  });
+  if (existing) {
+    return res.json({ group: { id: group.id, name: group.name }, alreadyMember: true });
+  }
+
+  await prisma.groupMember.create({ data: { groupId: group.id, userId: req.user.id } });
+  res.status(201).json({ group: { id: group.id, name: group.name } });
 });
 
 /**
@@ -222,6 +338,7 @@ groupsRouter.get("/groups/:id", async (req, res) => {
       where: { groupId: group.id },
       orderBy: { createdAt: "asc" },
       include: {
+        createdBy: { select: { username: true, displayName: true } },
         tasks: {
           select: { id: true, userId: true, completions: { select: { localDate: true } } },
         },
@@ -235,13 +352,21 @@ groupsRouter.get("/groups/:id", async (req, res) => {
     group: {
       id: group.id,
       name: group.name,
+      description: group.description,
+      visibility: group.visibility,
       inviteCode: group.inviteCode,
+      createdAt: group.createdAt.toISOString(),
       isOwner: group.createdById === req.user.id,
+      ownerId: group.createdById,
     },
     challenges: challenges.map((challenge) => ({
       id: challenge.id,
       title: challenge.title,
       platform: platformSummary(challenge.platform),
+      // Null once the person who suggested it has left.
+      addedBy: challenge.createdBy
+        ? challenge.createdBy.displayName || challenge.createdBy.username
+        : null,
     })),
     standings,
   });
@@ -269,6 +394,7 @@ groupsRouter.post("/groups/:id/tasks", async (req, res) => {
       groupId: group.id,
       title,
       platform,
+      createdById: req.user.id,
       tasks: {
         create: members.map((member) => ({ userId: member.userId, title, platform })),
       },
