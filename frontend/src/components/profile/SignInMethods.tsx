@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { KeyRound, Unlink } from "lucide-react";
 import GoogleButton from "../GoogleButton";
@@ -20,6 +20,16 @@ export default function SignInMethods() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(authErrorMessage(params.get("error")));
   const [done, setDone] = useState(params.get("linked") === "google" ? "Google connected." : "");
+  const [googleAvailable, setGoogleAvailable] = useState(false);
+
+  // Without credentials the Google routes 404, so offering "Connect" would be a
+  // button that goes nowhere. Hooks run before the guard below.
+  useEffect(() => {
+    api
+      .authConfig()
+      .then((config) => setGoogleAvailable(config.google))
+      .catch(() => setGoogleAvailable(false));
+  }, []);
 
   if (!user) return null;
   const account = user;
@@ -103,44 +113,46 @@ export default function SignInMethods() {
           </button>
         </li>
 
-        <li className="signin-row">
-          <span className="signin-icon signin-google" aria-hidden="true">
-            G
-          </span>
-          <div className="signin-text">
-            <span className="profile-label">Google</span>
-            <span className="muted small">
-              {account.googleLinked ? (account.googleEmail ?? "Connected") : "Not connected"}
+        {(googleAvailable || account.googleLinked) && (
+          <li className="signin-row">
+            <span className="signin-icon signin-google" aria-hidden="true">
+              G
             </span>
-          </div>
-
-          {account.googleLinked ? (
-            <button
-              type="button"
-              className="button button-ghost button-sm"
-              onClick={handleUnlink}
-              disabled={busy || !account.hasPassword}
-              title={
-                account.hasPassword
-                  ? "Disconnect Google"
-                  : "Set a password first — Google is the only way into this account"
-              }
-            >
-              <Unlink size={14} strokeWidth={2.2} aria-hidden="true" />
-              Disconnect
-            </button>
-          ) : (
-            <div className="signin-connect">
-              <GoogleButton label="Connect" intent="link" />
+            <div className="signin-text">
+              <span className="profile-label">Google</span>
+              <span className="muted small">
+                {account.googleLinked ? (account.googleEmail ?? "Connected") : "Not connected"}
+              </span>
             </div>
-          )}
-        </li>
+
+            {account.googleLinked ? (
+              <button
+                type="button"
+                className="button button-ghost button-sm"
+                onClick={handleUnlink}
+                disabled={busy || !account.hasPassword}
+                title={
+                  account.hasPassword
+                    ? "Disconnect Google"
+                    : "Set a password first — Google is the only way into this account"
+                }
+              >
+                <Unlink size={14} strokeWidth={2.2} aria-hidden="true" />
+                Disconnect
+              </button>
+            ) : (
+              <div className="signin-connect">
+                <GoogleButton label="Connect" intent="link" />
+              </div>
+            )}
+          </li>
+        )}
       </ul>
 
       {account.googleLinked && !account.hasPassword && (
         <p className="muted small">
-          Set a password and you'll have two ways in. Until then Google is the only one, so it
-          can't be disconnected.
+          Set a password and you'll have two ways in. Until then Google is the only one, so it can't
+          be disconnected.
         </p>
       )}
 
