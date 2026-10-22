@@ -3291,6 +3291,238 @@ a.stat-card:hover {
   }
 }
 
+/* ---------- Daily vs one-off: the composer switch ---------- */
+
+.kind-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.kind-option {
+  display: grid;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.kind-option:hover {
+  background: var(--surface-2);
+}
+
+/* Blue is the app's "clickable", and choosing is exactly that — so the selected
+   option carries the accent ring rather than a new colour. */
+.kind-option.is-active {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--text);
+}
+
+.kind-title {
+  font-size: var(--step-0);
+  font-weight: 600;
+}
+.kind-sub {
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+/* ---------- The one-off list ---------- */
+
+.todo-section {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.todo-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  color: var(--text-2);
+}
+.todo-head h3 {
+  font-size: var(--step-0);
+  font-weight: 600;
+  color: var(--text);
+}
+.todo-head .muted {
+  margin-left: auto;
+}
+
+/* Three columns, not five: a one-off has no streak, no week and no progress bar,
+   and leaving those columns empty would imply it should have them. */
+.once-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 128px 128px;
+  gap: var(--space-3);
+  align-items: center;
+  min-height: 56px;
+}
+
+.once-when {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.once-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-inset);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-2);
+  font-size: var(--step--1);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Green means done, the same as a verified tile — the role is unchanged. */
+.once-badge-done {
+  background: color-mix(in srgb, var(--verdict) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--verdict) 42%, transparent);
+  color: var(--verdict);
+}
+
+/* Late is a warning, not a broken streak — flame orange stays reserved for streaks,
+   so this borrows the danger ink instead. #f08a7a on #0f1522 is 7.4:1. */
+.once-badge-late {
+  background: color-mix(in srgb, #f08a7a 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #f08a7a 38%, transparent);
+  color: #f08a7a;
+}
+
+/* Finished jobs recede rather than disappear: still there, clearly not pending. */
+.once-done .task-title {
+  color: var(--text-2);
+}
+.once-overdue {
+  box-shadow: inset 2px 0 0 #f08a7a;
+}
+
+.once-due-field {
+  display: grid;
+  gap: 4px;
+  font-size: var(--step--1);
+  color: var(--text-2);
+}
+
+/* ---------- What the platform recorded ---------- */
+
+.solved {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.solved-head {
+  margin-bottom: var(--space-3);
+  font-size: var(--step-0);
+  font-weight: 600;
+}
+
+.solved-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.solved-day {
+  display: grid;
+  grid-template-columns: 124px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.solved-date {
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+.solved-items {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--step--1);
+}
+.solved-items a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.solved-items svg {
+  color: var(--muted);
+}
+
+/* The nudge: what to go and do, when today isn't done yet. */
+.solved-suggestion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: var(--text);
+}
+.solved-suggestion:hover {
+  background: var(--surface-2);
+  text-decoration: none;
+}
+
+.solved-suggestion-label {
+  font-size: var(--step--1);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.solved-suggestion-title {
+  font-weight: 600;
+}
+
+.difficulty {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--step--1);
+  font-weight: 600;
+}
+/* LeetCode's own three tiers. Measured on --bg-inset #0f1522: 8.4, 9.7 and 7.5:1. */
+.difficulty-easy {
+  background: color-mix(in srgb, #4ac4a0 14%, transparent);
+  color: #4ac4a0;
+}
+.difficulty-medium {
+  background: color-mix(in srgb, #e8b53f 14%, transparent);
+  color: #e8b53f;
+}
+.difficulty-hard {
+  background: color-mix(in srgb, #f08a7a 14%, transparent);
+  color: #f08a7a;
+}
+
+/* The "go and do it" link next to a task that isn't done. */
+.task-go {
+  white-space: nowrap;
+}
+
 @media (max-width: 900px) {
   .stat-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3349,6 +3581,18 @@ a.stat-card:hover {
     grid-column: 1;
     grid-row: 2;
   }
+  .once-line {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: var(--space-3);
+  }
+  .once-when {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .solved-day {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
   /* The hero stacks: portrait, then who you are, then the actions. */
   .profile-hero-body {
     flex-direction: column;
@@ -3391,6 +3635,16 @@ a.stat-card:hover {
   .task-cell-progress {
     grid-column: 1;
     grid-row: auto;
+  }
+  .once-line {
+    grid-template-columns: 1fr;
+  }
+  .once-when {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .kind-switch {
+    grid-template-columns: 1fr;
   }
 }
 

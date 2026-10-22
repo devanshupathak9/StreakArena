@@ -32,3 +32,17 @@ export function formatWhen(iso: string) {
   for (const unit of units) if (seconds >= unit[1]) chosen = unit;
   return format.format(-Math.round(seconds / chosen[1]), chosen[0]);
 }
+
+/**
+ * A due date said the way a person would: "Today", "Tomorrow", "Yesterday", or the
+ * plain day. Bare dates only — both arguments are already in the user's timezone.
+ */
+export function relativeDay(date: string, today: string) {
+  const days = Math.round((asUtc(date).getTime() - asUtc(today).getTime()) / 86_400_000);
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  if (days === -1) return "Yesterday";
+  if (days > 1 && days < 7) return `In ${days} days`;
+  if (days < -1 && days > -7) return `${-days} days ago`;
+  return formatDay(date);
+}

@@ -15,6 +15,7 @@ export default function Tasks() {
     handleEdit,
     handleDelete,
     handleSync,
+    handleReschedule,
   } = useTaskActions();
 
   if (!data) {
@@ -46,6 +47,7 @@ export default function Tasks() {
         onSync={(id) => void handleSync(id)}
         onEdit={handleEdit}
         onCreate={handleCreate}
+        onReschedule={handleReschedule}
       />
 
       <Toasts toasts={toasts} onDismiss={dismiss} />

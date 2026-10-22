@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { ChevronRight, Plus, RefreshCw, Users } from "lucide-react";
-import type { TaskSummary } from "../lib/api";
+import { ChevronRight, ListTodo, Plus, RefreshCw, Users } from "lucide-react";
+import type { TaskKind, TaskSummary } from "../lib/api";
 import { CATEGORY_LABELS, categoryOf, type Category } from "../lib/categories";
+import OnceTaskRow from "./OnceTaskRow";
 import PillTabs from "./ui/PillTabs";
 import TaskForm from "./TaskForm";
 import TaskRow from "./TaskRow";
@@ -17,7 +18,12 @@ type Props = {
   onDelete: (taskId: string) => void;
   onSync: (taskId: string | null) => void;
   onEdit: (taskId: string, title: string, description: string) => Promise<void>;
-  onCreate: (title: string, platform: string | null) => Promise<void>;
+  onCreate: (
+    title: string,
+    platform: string | null,
+    options: { kind?: TaskKind; dueDate?: string },
+  ) => Promise<void>;
+  onReschedule: (taskId: string, dueDate: string) => Promise<void>;
 };
 
 const ORDER: Category[] = ["coding", "learning", "health", "other"];
@@ -50,6 +56,7 @@ export default function TaskPanel({
   onSync,
   onEdit,
   onCreate,
+  onReschedule,
 }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
   const [composing, setComposing] = useState(false);
@@ -62,11 +69,27 @@ export default function TaskPanel({
   }
 
   const shown = filter === "all" ? tasks : tasks.filter((task) => categoryOf(task) === filter);
-  const { personal, groups } = split(shown);
+
+  // The two kinds answer different questions, so they get different tables rather
+  // than one table with half its columns blank.
+  const habits = shown.filter((task) => task.kind !== "once");
+  const todos = shown.filter((task) => task.kind === "once");
+  const { personal, groups } = split(habits);
   const syncable = tasks.some((task) => task.platform?.url);
 
-  async function handleCreate(title: string, platform: string | null) {
-    await onCreate(title, platform);
+  // Outstanding first, oldest due date first — then the finished ones, out of the way.
+  const sortedTodos = [...todos].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    return (a.dueDate ?? "").localeCompare(b.dueDate ?? "");
+  });
+  const openTodos = todos.filter((task) => !task.done).length;
+
+  async function handleCreate(
+    title: string,
+    platform: string | null,
+    options: { kind?: TaskKind; dueDate?: string },
+  ) {
+    await onCreate(title, platform, options);
     setComposing(false);
   }
 
@@ -131,7 +154,9 @@ export default function TaskPanel({
         ]}
       />
 
-      {composing && <TaskForm onCreate={handleCreate} onCancel={() => setComposing(false)} />}
+      {composing && (
+        <TaskForm onCreate={handleCreate} today={today} onCancel={() => setComposing(false)} />
+      )}
 
       {shown.length === 0 ? (
         <p className="empty">
@@ -141,13 +166,15 @@ export default function TaskPanel({
         </p>
       ) : (
         <div className="task-table">
-          <div className="task-head-row" aria-hidden="true">
-            <span>Task</span>
-            <span>Streak</span>
-            <span>This week</span>
-            <span>Progress</span>
-            <span>Actions</span>
-          </div>
+          {habits.length > 0 && (
+            <div className="task-head-row" aria-hidden="true">
+              <span>Task</span>
+              <span>Streak</span>
+              <span>This week</span>
+              <span>Progress</span>
+              <span>Actions</span>
+            </div>
+          )}
 
           {personal.length > 0 && rows(personal)}
 
@@ -180,6 +207,38 @@ export default function TaskPanel({
               </div>
             );
           })}
+
+          {/* One-off jobs, kept below the habits and visibly separate: they carry no
+              streak, so putting them in the same table would imply they do. */}
+          {sortedTodos.length > 0 && (
+            <div className="todo-section">
+              <div className="todo-head">
+                <ListTodo size={15} strokeWidth={2} aria-hidden="true" />
+                <h3>Just once</h3>
+                <span className="muted small">
+                  {openTodos === 0
+                    ? "all done"
+                    : `${openTodos} left of ${sortedTodos.length}`}
+                </span>
+              </div>
+
+              <div className="task-list">
+                {sortedTodos.map((task) => (
+                  <OnceTaskRow
+                    key={task.id}
+                    task={task}
+                    today={today}
+                    syncing={syncing === task.id || syncing === "all"}
+                    onToggle={onToggle}
+                    onDelete={onDelete}
+                    onSync={onSync}
+                    onEdit={onEdit}
+                    onReschedule={onReschedule}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { Check, MoreHorizontal, RefreshCw } from "lucide-react";
+import { ArrowRight, Check, MoreHorizontal, RefreshCw } from "lucide-react";
 import type { TaskSummary } from "../lib/api";
 import { weekDays } from "../lib/week";
 import MonthTiles from "./MonthTiles";
 import PlatformIcon from "./ui/PlatformIcon";
+import TaskActivity from "./TaskActivity";
 import WeekStrip from "./ui/WeekStrip";
 
 type Props = {
@@ -30,6 +31,7 @@ export default function TaskRow({
   // A plain task has no platform to ask, so ticking it by hand is the only way.
   const synced = Boolean(task.platform);
   const canSync = Boolean(task.platform?.url);
+  const action = task.platform?.action ?? null;
 
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -154,6 +156,20 @@ export default function TaskRow({
         </div>
 
         <div className="task-cell task-cell-actions">
+          {/* Only offered while today is still undone — once it's done the link is
+              just noise, and for GitHub there is no such page at all. */}
+          {!task.doneToday && action && (
+            <a
+              href={action.url}
+              target="_blank"
+              rel="noreferrer"
+              className="button button-sm button-ghost task-go"
+            >
+              {action.label}
+              <ArrowRight size={14} strokeWidth={2.2} aria-hidden="true" />
+            </a>
+          )}
+
           {canSync ? (
             <button
               type="button"
@@ -249,6 +265,10 @@ export default function TaskRow({
             readOnly={synced}
             onToggle={(date, done) => onToggle(task.id, date, done)}
           />
+          {/* A tile says a day counted. This says what it counted for. */}
+          {task.platform?.hasDetail && (
+            <TaskActivity taskId={task.id} label={task.platform.label} />
+          )}
         </div>
       )}
     </article>

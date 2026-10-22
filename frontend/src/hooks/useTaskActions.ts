@@ -1,10 +1,18 @@
 import { useCallback, useState } from "react";
-import { api, type Dashboard as DashboardData, type SyncResult } from "../lib/api";
+import {
+  api,
+  type Dashboard as DashboardData,
+  type SyncResult,
+  type TaskKind,
+} from "../lib/api";
 import { useAppData } from "../context/AppData";
 import type { Toast } from "../components/Toasts";
 
 /** Flip one day locally so the tile responds instantly; the refetch confirms it. */
 function applyToggle(data: DashboardData, taskId: string, date: string, done: boolean) {
+  const target = data.tasks.find((task) => task.id === taskId);
+  const once = target?.kind === "once";
+
   return {
     ...data,
     tasks: data.tasks.map((task) =>
@@ -12,13 +20,18 @@ function applyToggle(data: DashboardData, taskId: string, date: string, done: bo
         ? {
             ...task,
             doneToday: date === data.today ? done : task.doneToday,
+            // A one-off is done outright; a habit is only done *for that day*.
+            done: once ? done : date === data.today ? done : task.done,
             tiles: task.tiles.map((tile) => (tile.date === date ? { ...tile, done } : tile)),
           }
         : task,
     ),
-    heatmap: data.heatmap.map((day) =>
-      day.date === date ? { ...day, completed: day.completed + (done ? 1 : -1) } : day,
-    ),
+    // One-offs are deliberately absent from the heatmap, so they mustn't move it.
+    heatmap: once
+      ? data.heatmap
+      : data.heatmap.map((day) =>
+          day.date === date ? { ...day, completed: day.completed + (done ? 1 : -1) } : day,
+        ),
   };
 }
 
@@ -64,10 +77,25 @@ export function useTaskActions() {
     await load();
   }
 
-  async function handleCreate(title: string, platform: string | null) {
+  async function handleCreate(
+    title: string,
+    platform: string | null,
+    options: { kind?: TaskKind; dueDate?: string } = {},
+  ) {
     setError("");
     try {
-      await api.createTask(title, platform);
+      await api.createTask(title, platform, options);
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  /** Moving a one-off to another day. Rejected by the server for a habit. */
+  async function handleReschedule(taskId: string, dueDate: string) {
+    setError("");
+    try {
+      await api.updateTask(taskId, { dueDate });
       await load();
     } catch (err) {
       setError((err as Error).message);
@@ -136,5 +164,6 @@ export function useTaskActions() {
     handleEdit,
     handleDelete,
     handleSync,
+    handleReschedule,
   };
 }

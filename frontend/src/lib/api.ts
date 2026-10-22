@@ -46,12 +46,16 @@ export type GlobalBoard = {
 };
 
 /** One of the sites a task can be attached to, as listed by GET /platforms. */
+/** Where to go and actually do the work. Null where there's no such page. */
+export type PlatformAction = { url: string; label: string };
+
 export type Platform = {
   id: string;
   label: string;
   emoji: string;
   placeholder: string;
   hint: string;
+  action: PlatformAction | null;
 };
 
 /** A handle you've linked. */
@@ -71,8 +75,28 @@ export type SyncResult = {
   label: string;
   ok: boolean;
   added: number;
+  /** Problem names recorded alongside the days, where the platform says. */
+  detailAdded?: number;
   activeDays?: number;
   error: string | null;
+};
+
+/** What a platform says you actually did, for one task. */
+export type ActivityDay = { date: string; items: { title: string; url: string | null }[] };
+
+export type DailySuggestion = {
+  date: string;
+  title: string;
+  difficulty: string | null;
+  url: string;
+};
+
+export type TaskActivity = {
+  platform: string | null;
+  /** False when this platform can't say what was done — not the same as "nothing". */
+  supported: boolean;
+  days: ActivityDay[];
+  suggestion: DailySuggestion | null;
 };
 
 /** A task's platform tag. `url` is null until you link that handle in Profile. */
@@ -83,12 +107,25 @@ export type TaskPlatform = {
   handle: string | null;
   url: string | null;
   lastSyncedAt: string | null;
+  action: PlatformAction | null;
+  /** Whether this platform can say *what* was done, not just that something was. */
+  hasDetail: boolean;
 };
+
+/** A recurring habit, or a single job on a single day. */
+export type TaskKind = "daily" | "once";
 
 export type TaskSummary = {
   id: string;
   title: string;
   description: string | null;
+  kind: TaskKind;
+  /** Only set for a one-off: the day it's meant to happen. */
+  dueDate: string | null;
+  /** A one-off is done once it has any completion; a habit, only for today. */
+  done: boolean;
+  /** A one-off whose day has passed undone. Always false for a habit. */
+  overdue: boolean;
   startedOn: string;
   currentStreak: number;
   longestStreak: number;
@@ -276,9 +313,17 @@ export const api = {
 
   dashboard: (days = 30) => request<Dashboard>(`/dashboard?days=${days}`),
 
-  createTask: (title: string, platform: string | null) => post("/tasks", { title, platform }),
+  createTask: (
+    title: string,
+    platform: string | null,
+    options: { kind?: TaskKind; dueDate?: string } = {},
+  ) => post("/tasks", { title, platform, ...options }),
 
-  updateTask: (id: string, input: { title?: string; description?: string }) =>
+  /** The problem names behind a task's days, plus today's nudge for where to go. */
+  taskActivity: (id: string, days = 30) =>
+    request<TaskActivity>(`/tasks/${id}/activity?days=${days}`),
+
+  updateTask: (id: string, input: { title?: string; description?: string; dueDate?: string }) =>
     request<{ ok: boolean }>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
 
   platforms: () => request<{ platforms: Platform[] }>("/platforms").then((r) => r.platforms),
