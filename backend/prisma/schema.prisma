@@ -32,6 +32,7 @@ model User {
 
   tasks             Task[]
   platformAccounts  PlatformAccount[]
+  platformActivity  PlatformActivity[]
   groupsCreated     Group[]           @relation("GroupsCreated")
   challengesCreated GroupTask[]       @relation("ChallengesCreated")
   memberships       GroupMember[]
@@ -143,6 +144,15 @@ model Task {
   platform    String?
   createdAt   DateTime @default(now())
 
+  // "daily" is a recurring habit and the only kind a streak is made of. "once" is a
+  // single job on a single day: no streak, and kept out of the heatmap and the
+  // leaderboards so a to-do can never be mistaken for a habit.
+  kind String @default("daily")
+
+  // Only meaningful for kind "once": the day it's meant to happen, as a calendar
+  // date in the owner's timezone.
+  dueDate DateTime? @db.Date
+
   // Set when this task is one member's copy of a group challenge. Detaching it
   // (leaving the group, or the challenge being removed) keeps the task and its
   // history as an ordinary personal task rather than deleting someone's streak.
@@ -169,4 +179,31 @@ model TaskCompletion {
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@unique([taskId, localDate])
+}
+
+// The detail behind a verified day: which problems a platform says you actually
+// solved, so a green tile can answer "doing what?". Written by sync and additive
+// like the rest of it — nothing here is ever revoked.
+//
+// It has to be stored rather than fetched on demand because LeetCode caps its
+// recent-submissions list at 20 regardless of what you ask for; sync accumulates
+// history that the live endpoint has already forgotten.
+model PlatformActivity {
+  id        String   @id @default(cuid())
+  userId    String
+  platform  String
+  localDate DateTime @db.Date
+  title     String
+  url       String?
+
+  // The platform's own key for the thing done — LeetCode's title slug. Re-syncing a
+  // day can't duplicate a row, and solving the same problem twice counts once.
+  externalId String
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform, localDate, externalId])
+  @@index([userId, platform, localDate])
 }

@@ -21,6 +21,9 @@ globalRouter.get("/global", async (req, res) => {
   const users = await prisma.user.findMany({
     include: {
       tasks: {
+        // Recurring habits only. The board ranks streaks, and a one-off task has
+        // none — counting its single day would let a to-do list buy a ranking.
+        where: { kind: "daily" },
         include: { completions: { select: { localDate: true, source: true } } },
       },
     },

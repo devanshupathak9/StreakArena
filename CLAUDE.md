@@ -84,6 +84,12 @@ instead run `cd backend && npm run dev` against the same database (it's publishe
   `Cascade`.
 - **Not every streak has an API.** The task composer leads with manual presets (reading, workout,
   meditation) on purpose — platform tasks are the flagship, not the only citizen.
+- **A task is `daily` or `once`, and only `daily` has a streak.** A one-off is a single job on a
+  single day: no tiles, `currentStreak` 0, and excluded from the heatmap totals *and* the global
+  leaderboard — otherwise a to-do list could buy a ranking. `kind` is immutable after creation,
+  because flipping a 40-day habit into a to-do would reinterpret history recorded under different
+  rules; `dueDate` can be moved, since "I'll do it tomorrow" is ordinary. Group challenges are
+  always `daily`.
 - **Colour carries meaning, and the roles are fixed.** Flame orange = a live streak and the
   XP bar. Green = a verified completion. Blue = clickable. Gold, silver and bronze = rank.
   Everything else is ink. Never borrow one role's colour for another's job.
@@ -152,6 +158,18 @@ There is **no test suite and no browser in the agent session.** So:
   scale is a nightly snapshot table, not a cleverer query.
 - LeetCode and Duolingo use undocumented endpoints. Expect them to break; every adapter is
   wrapped and reports per-platform.
+- **Detail adapters are a separate, optional layer.** `fetchActiveDays` answers *which days*;
+  `fetchActivityDetail` answers *doing what*, and only LeetCode implements it. Detail is written
+  inside a `try` that logs and swallows, because losing the problem names must never turn a
+  working sync into a failed one. Rows live in `PlatformActivity` rather than being fetched for
+  display because LeetCode caps `recentAcSubmissionList` at 20 whatever `limit` asks for
+  (measured: 50 and 100 both return 20) — storing accumulates history the live endpoint has
+  already forgotten. The unique key is `(userId, platform, localDate, externalId)`, so re-syncing
+  adds nothing and the same problem solved twice in a day counts once.
+- **`platform.action` is the "go do it" link**, used when a task isn't done yet. Null for GitHub
+  and GitLab on purpose: there's no page you visit to make a commit, and a link that lands on a
+  profile is worse than none. LeetCode additionally has a live daily-challenge suggestion, cached
+  per UTC day in `sync.js` so it costs one upstream call a day rather than one a page load.
 - **Nine platforms sync.** Documented and supported: Codeforces, Chess.com, Codewars, Lichess,
   GitLab, GitHub (token optional). Community mirror: AtCoder, via kenkoooo — AtCoder publishes
   no API, and the mirror answers `200 []` for a handle that doesn't exist, so a typo there reads
@@ -160,6 +178,13 @@ There is **no test suite and no browser in the agent session.** So:
   first page returns the days already collected rather than failing the platform, because sync
   only ever adds. GitLab 500s on deep offset pages for very busy accounts — that's the case this
   exists for.
+- **LeetCode's two adapters disagree about midnight.** The day adapter buckets
+  `submissionCalendar` timestamps in **UTC**; the detail adapter buckets submissions in the
+  **user's timezone**, which is what the product rule says. For a solve within the offset of
+  midnight, the problem can therefore be listed under a day whose tile isn't green. Fixing it
+  means changing the day adapter, which changes what counts as a streak day — left alone
+  deliberately rather than changed quietly. The day adapter also counts *all* submissions while
+  the detail list is accepted-only, so a day can be green with no problems listed.
 - **Lichess is the slow one**, ~10s for an active player: the export streams games, and even with
   every non-timestamp field switched off there are hundreds of them. It sits inside the 20s
   timeout, but it's the first thing to feel slow if the budget ever tightens.

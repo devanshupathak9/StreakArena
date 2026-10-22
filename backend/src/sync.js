@@ -400,6 +400,100 @@ export function canSync(platform) {
   return Object.hasOwn(ADAPTERS, platform);
 }
 
+/*
+ * Detail adapters answer a second, optional question: *what* did this handle do on
+ * those days? A platform that can't say keeps its green tiles and simply has no
+ * detail — the streak never depends on this.
+ */
+
+/**
+ * LeetCode's accepted-submissions list. It is hard-capped at 20 whatever `limit`
+ * says (verified: asking for 50 or 100 still returns 20), which is exactly why the
+ * rows are stored on sync instead of fetched for display — otherwise history older
+ * than the last twenty solves would be unreachable.
+ */
+async function leetcodeSolved(handle, since, today, timezone) {
+  const body = await getJson("https://leetcode.com/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Referer: "https://leetcode.com" },
+    body: JSON.stringify({
+      query: `query($username:String!,$limit:Int){
+        recentAcSubmissionList(username:$username, limit:$limit){ title titleSlug timestamp }
+      }`,
+      variables: { username: handle, limit: 20 },
+    }),
+  });
+
+  if (body.errors?.length) throw new Error(body.errors[0].message);
+
+  return (body.data?.recentAcSubmissionList ?? []).map((entry) => ({
+    localDate: dateInTz(new Date(Number(entry.timestamp) * 1000), timezone),
+    title: entry.title,
+    url: `https://leetcode.com/problems/${entry.titleSlug}/`,
+    externalId: entry.titleSlug,
+  }));
+}
+
+const DETAIL_ADAPTERS = {
+  leetcode: leetcodeSolved,
+};
+
+export function hasDetail(platform) {
+  return Object.hasOwn(DETAIL_ADAPTERS, platform);
+}
+
+/**
+ * What was done on each active day, where the platform will say. Returns [] rather
+ * than throwing for a platform with no detail adapter, because this is a bonus on
+ * top of a sync that has already succeeded — losing it must never fail the sync.
+ */
+export async function fetchActivityDetail(platform, handle, since, today, timezone) {
+  const adapter = DETAIL_ADAPTERS[platform];
+  if (!adapter) return [];
+
+  const items = await adapter(handle, since, today, timezone);
+  return items.filter((item) => item.localDate >= since && item.localDate <= today);
+}
+
+/**
+ * Today's suggested thing to go and do, for a task that isn't done yet. Only
+ * LeetCode publishes one; everything else falls back to the static `action` link in
+ * the platform catalog.
+ */
+const suggestionCache = new Map();
+
+export async function fetchDailySuggestion(platform) {
+  if (platform !== "leetcode") return null;
+
+  // LeetCode's daily rolls over at UTC midnight and is the same for everyone, so one
+  // fetch a day serves every user — this is called on a page load, not a sync.
+  const utcDay = new Date().toISOString().slice(0, 10);
+  const cached = suggestionCache.get(platform);
+  if (cached?.day === utcDay) return cached.value;
+
+  const body = await getJson("https://leetcode.com/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Referer: "https://leetcode.com" },
+    body: JSON.stringify({
+      query: `query{ activeDailyCodingChallengeQuestion{
+        date link question{ title titleSlug difficulty }
+      } }`,
+    }),
+  });
+
+  const daily = body.data?.activeDailyCodingChallengeQuestion;
+  if (!daily?.question) return null;
+
+  const value = {
+    date: daily.date,
+    title: daily.question.title,
+    difficulty: daily.question.difficulty ?? null,
+    url: `https://leetcode.com${daily.link}`,
+  };
+  suggestionCache.set(platform, { day: utcDay, value });
+  return value;
+}
+
 /**
  * The days `handle` was active on `platform`, between `since` and `today` inclusive.
  * Throws with a message meant for the user — the caller turns that into per-platform

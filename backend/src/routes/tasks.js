@@ -2,7 +2,13 @@ import { Router } from "express";
 import { prisma } from "../db.js";
 import { loadUser, requireAuth } from "../auth.js";
 import { getPlatform, isPlatformId, publicAccount } from "../platforms.js";
-import { canSync, fetchActiveDays } from "../sync.js";
+import {
+  canSync,
+  fetchActiveDays,
+  fetchActivityDetail,
+  fetchDailySuggestion,
+  hasDetail,
+} from "../sync.js";
 import {
   addDays,
   currentStreak,
@@ -33,6 +39,12 @@ function taskPlatform(id, linked) {
     handle: account?.handle ?? null,
     url: account?.url ?? null,
     lastSyncedAt: account?.lastSyncedAt ?? null,
+    // Where to go and actually do it, for a task that isn't done yet. Null for
+    // GitHub and GitLab: there is no page you visit to make a commit, and a "go do
+    // it" link that lands on a profile is worse than none.
+    action: platform.action ?? null,
+    // Whether this platform can say *what* was done, not just that something was.
+    hasDetail: hasDetail(platform.id),
   };
 }
 
@@ -40,6 +52,9 @@ const HEATMAP_DAYS = 90;
 const DESCRIPTION_MAX = 200;
 const MAX_TILE_DAYS = 90;
 const RECENT_EVENTS = 12;
+
+/** How far ahead a one-off task may be scheduled. */
+const MAX_DUE_AHEAD_DAYS = 365;
 
 tasksRouter.use(requireAuth, loadUser);
 
@@ -86,12 +101,20 @@ tasksRouter.get("/dashboard", async (req, res) => {
   const summaries = tasks.map((task) => {
     const dates = task.completions.map((c) => fromDbDate(c.localDate));
     const done = new Set(dates);
+    // A one-off is a single job, not a habit: it has no streak, no tile row, and it
+    // stays out of the heatmap — otherwise a to-do would dilute the picture of how
+    // consistently the recurring tasks are being kept.
+    const once = task.kind === "once";
+    const dueDate = task.dueDate ? fromDbDate(task.dueDate) : null;
+
     // A day the platform confirmed reads differently from one you ticked yourself,
     // so the tile needs to know which it was.
     const verified = new Set(
       task.completions.filter((c) => c.source === "synced").map((c) => fromDbDate(c.localDate)),
     );
-    for (const date of done) doneByDate.set(date, (doneByDate.get(date) ?? 0) + 1);
+    if (!once) {
+      for (const date of done) doneByDate.set(date, (doneByDate.get(date) ?? 0) + 1);
+    }
 
     // A task counts towards a day's total from its creation date — or from its
     // earliest backfilled completion, whichever came first.
@@ -100,33 +123,44 @@ tasksRouter.get("/dashboard", async (req, res) => {
 
     return {
       activeFrom,
+      counts: !once,
       task: {
         id: task.id,
         title: task.title,
         description: task.description ?? null,
+        kind: task.kind,
+        dueDate,
         startedOn,
-        currentStreak: currentStreak(dates, today),
-        longestStreak: longestStreak(dates),
+        currentStreak: once ? 0 : currentStreak(dates, today),
+        longestStreak: once ? 0 : longestStreak(dates),
         totalDays: done.size,
         syncedDays: task.completions.filter((c) => c.source === "synced").length,
         platform: taskPlatform(task.platform, linked),
         group: task.groupTask?.group ?? null,
         doneToday: done.has(today),
-        tiles: tileWindow.map((date) => ({
-          date,
-          done: done.has(date),
-          verified: verified.has(date),
-        })),
+        // A one-off is finished the moment it has any completion at all, whichever
+        // day that landed on; a habit is only ever done *for today*.
+        done: once ? done.size > 0 : done.has(today),
+        // Its day has passed and it still isn't done. False for habits, which can't
+        // be late — they just break a streak.
+        overdue: once && done.size === 0 && dueDate !== null && dueDate < today,
+        tiles: once
+          ? []
+          : tileWindow.map((date) => ({
+              date,
+              done: done.has(date),
+              verified: verified.has(date),
+            })),
       },
     };
   });
 
   // Totals only count tasks that were active by then, so the heatmap doesn't look
-  // sparse for days before a task existed.
+  // sparse for days before a task existed. One-offs are excluded entirely.
   const heatmap = lastNDays(today, HEATMAP_DAYS).map((date) => ({
     date,
     completed: doneByDate.get(date) ?? 0,
-    total: summaries.filter((entry) => entry.activeFrom <= date).length,
+    total: summaries.filter((entry) => entry.counts && entry.activeFrom <= date).length,
   }));
 
   const recent = latest.map((completion) => ({
@@ -162,10 +196,55 @@ tasksRouter.post("/tasks", async (req, res) => {
     return res.status(400).json({ error: `Keep the description under ${DESCRIPTION_MAX} characters` });
   }
 
+  /*
+   * Two shapes of task. "daily" is the recurring habit the whole streak model is
+   * built on and stays the default, so nothing that already posts to this route
+   * changes behaviour. "once" is a single job on a single day — it earns no streak
+   * and never reaches the heatmap or the leaderboards.
+   */
+  const kind = req.body?.kind === undefined ? "daily" : String(req.body.kind);
+  if (kind !== "daily" && kind !== "once") {
+    return res.status(400).json({ error: "A task is either daily or once" });
+  }
+
+  let dueDate = null;
+  if (kind === "once") {
+    const today = todayInTz(req.user.timezone);
+    // Defaults to today, because "I just have to do this today" is the whole point.
+    const raw = req.body?.dueDate === undefined ? today : String(req.body.dueDate);
+    if (!isValidDateString(raw)) return res.status(400).json({ error: "Invalid due date" });
+    if (raw < addDays(today, -(HEATMAP_DAYS - 1))) {
+      return res.status(400).json({ error: "That day is too far in the past" });
+    }
+    if (raw > addDays(today, MAX_DUE_AHEAD_DAYS)) {
+      return res.status(400).json({ error: "That's more than a year away" });
+    }
+    dueDate = toDbDate(raw);
+  } else if (req.body?.dueDate) {
+    // Catching this is kinder than silently dropping it: a daily task with a due
+    // date is almost always a one-off the caller forgot to mark.
+    return res.status(400).json({ error: "Only a one-off task has a due date" });
+  }
+
   const task = await prisma.task.create({
-    data: { userId: req.user.id, title, platform, description: description || null },
+    data: {
+      userId: req.user.id,
+      title,
+      platform,
+      description: description || null,
+      kind,
+      dueDate,
+    },
   });
-  res.status(201).json({ task: { id: task.id, title: task.title, platform: task.platform } });
+  res.status(201).json({
+    task: {
+      id: task.id,
+      title: task.title,
+      platform: task.platform,
+      kind: task.kind,
+      dueDate: task.dueDate ? fromDbDate(task.dueDate) : null,
+    },
+  });
 });
 
 /** Rename a task or change its note. The platform stays put — it decides how the
@@ -186,6 +265,34 @@ tasksRouter.patch("/tasks/:id", async (req, res) => {
       return res.status(400).json({ error: `Keep the description under ${DESCRIPTION_MAX} characters` });
     }
     data.description = description || null;
+  }
+
+  /*
+   * A one-off can be moved to another day — "I'll do it tomorrow" is the most
+   * ordinary thing to want. `kind` itself is deliberately immutable: flipping a
+   * habit with a 40-day streak into a to-do, or the reverse, would reinterpret
+   * history that was recorded under different rules.
+   */
+  if (req.body?.dueDate !== undefined) {
+    const existing = await prisma.task.findFirst({
+      where: { id: req.params.id, userId: req.user.id },
+      select: { kind: true },
+    });
+    if (!existing) return res.status(404).json({ error: "Task not found" });
+    if (existing.kind !== "once") {
+      return res.status(400).json({ error: "Only a one-off task has a due date" });
+    }
+
+    const today = todayInTz(req.user.timezone);
+    const raw = String(req.body.dueDate);
+    if (!isValidDateString(raw)) return res.status(400).json({ error: "Invalid due date" });
+    if (raw < addDays(today, -(HEATMAP_DAYS - 1))) {
+      return res.status(400).json({ error: "That day is too far in the past" });
+    }
+    if (raw > addDays(today, MAX_DUE_AHEAD_DAYS)) {
+      return res.status(400).json({ error: "That's more than a year away" });
+    }
+    data.dueDate = toDbDate(raw);
   }
 
   if (!Object.keys(data).length) return res.status(400).json({ error: "Nothing to change" });
@@ -303,11 +410,50 @@ async function runSync(user, taskFilter = null) {
         added += count;
       }
 
+      /*
+       * Which problems, not just which days. This is a bonus on top of a sync that
+       * has already succeeded, so a failure here is logged and swallowed — losing
+       * the detail must never turn a working platform into a failed one, and the
+       * streak never depends on it.
+       */
+      let detailAdded = 0;
+      if (hasDetail(platform)) {
+        try {
+          const detail = await fetchActivityDetail(platform, handle, since, today, user.timezone);
+          if (detail.length) {
+            const written = await prisma.platformActivity.createMany({
+              data: detail.map((item) => ({
+                userId: user.id,
+                platform,
+                localDate: toDbDate(item.localDate),
+                title: item.title,
+                url: item.url ?? null,
+                externalId: item.externalId,
+              })),
+              // The unique key is (user, platform, day, externalId), so re-syncing is
+              // a no-op and the same problem solved twice in a day counts once.
+              skipDuplicates: true,
+            });
+            detailAdded = written.count;
+          }
+        } catch (error) {
+          console.error(`${platform} detail sync failed:`, error.message);
+        }
+      }
+
       await prisma.platformAccount.updateMany({
         where: { userId: user.id, platform },
         data: { lastSyncedAt: new Date(), lastSyncError: null },
       });
-      results.push({ platform, label, ok: true, added, activeDays: active.size, error: null });
+      results.push({
+        platform,
+        label,
+        ok: true,
+        added,
+        detailAdded,
+        activeDays: active.size,
+        error: null,
+      });
     } catch (error) {
       // An unofficial endpoint changing shape is a normal Tuesday, so it's reported
       // per platform and remembered, not thrown.
@@ -322,6 +468,69 @@ async function runSync(user, taskFilter = null) {
 
   return results;
 }
+
+/**
+ * What the platform says you actually did, for one task — the problem names behind
+ * its green tiles, newest day first, plus today's suggestion for where to go and do
+ * it if it isn't done.
+ *
+ * Only LeetCode can answer the first half today; `supported` says so rather than
+ * returning an empty list that reads like "you did nothing".
+ */
+tasksRouter.get("/tasks/:id/activity", async (req, res) => {
+  const task = await prisma.task.findFirst({
+    where: { id: req.params.id, userId: req.user.id },
+    select: { id: true, platform: true },
+  });
+  if (!task) return res.status(404).json({ error: "Task not found" });
+
+  const platform = task.platform;
+  if (!platform) {
+    return res.json({ platform: null, supported: false, days: [], suggestion: null });
+  }
+
+  const requested = Number.parseInt(req.query.days, 10);
+  const window = Number.isNaN(requested) ? 30 : Math.min(Math.max(requested, 1), HEATMAP_DAYS);
+  const today = todayInTz(req.user.timezone);
+  const since = addDays(today, -(window - 1));
+
+  const rows = hasDetail(platform)
+    ? await prisma.platformActivity.findMany({
+        where: {
+          userId: req.user.id,
+          platform,
+          localDate: { gte: toDbDate(since), lte: toDbDate(today) },
+        },
+        orderBy: [{ localDate: "desc" }, { title: "asc" }],
+        select: { localDate: true, title: true, url: true },
+      })
+    : [];
+
+  // Grouped by day, because that's how the tiles are read.
+  const byDate = new Map();
+  for (const row of rows) {
+    const date = fromDbDate(row.localDate);
+    if (!byDate.has(date)) byDate.set(date, []);
+    byDate.get(date).push({ title: row.title, url: row.url });
+  }
+
+  // Suggestions are per-platform and cached for the day, so this costs one upstream
+  // call a day rather than one a page load.
+  let suggestion = null;
+  try {
+    suggestion = await fetchDailySuggestion(platform);
+  } catch (error) {
+    // A missing suggestion is a missing nudge, not a failed request.
+    console.error(`${platform} suggestion failed:`, error.message);
+  }
+
+  res.json({
+    platform,
+    supported: hasDetail(platform),
+    days: [...byDate].map(([date, items]) => ({ date, items })),
+    suggestion,
+  });
+});
 
 tasksRouter.post("/sync", async (req, res) => {
   const results = await runSync(req.user);

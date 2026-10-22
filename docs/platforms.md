@@ -90,3 +90,31 @@ not every streak has an API, and the task composer leads with manual presets on 
 Then prove it: link a real handle, sync, and check the days landed inside the window and
 that a second sync adds zero. Test a bad handle too — that is how the Chess.com
 empty-month bug was found.
+
+## Detail: what was done, not just that something was
+
+`fetchActiveDays` answers *which days*. A second, optional layer answers *doing what*:
+
+| | |
+| --- | --- |
+| `fetchActivityDetail(platform, …)` | the things done, per day. Only LeetCode implements it; every other platform returns `[]`. |
+| `fetchDailySuggestion(platform)` | today's suggested problem. LeetCode only, cached per UTC day. |
+| `platform.action` | a static "go do it" URL, in `platforms.js`. Null for GitHub and GitLab. |
+
+LeetCode's `recentAcSubmissionList` is **hard-capped at 20** regardless of the `limit` argument
+(measured: 50 and 100 both return 20 rows). That is why the rows are written to
+`PlatformActivity` on every sync instead of being fetched when the page renders — sync
+accumulates history the live endpoint has already dropped. The unique key
+`(userId, platform, localDate, externalId)` makes re-syncing a no-op and collapses the same
+problem solved twice in one day.
+
+Detail is written inside a `try` that logs and swallows. It is a bonus on top of a sync that has
+already succeeded, and no streak depends on it, so a broken detail query must not fail the
+platform.
+
+Two mismatches to know about, both in `GET /tasks/:id/activity`:
+
+- the day adapter buckets by **UTC**, the detail adapter by the **user's timezone**, so a solve
+  near midnight can be listed under a day whose tile isn't green;
+- the day adapter counts **all** submissions, the detail list is **accepted only**, so a green day
+  can legitimately list nothing.

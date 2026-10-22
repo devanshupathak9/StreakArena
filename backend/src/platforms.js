@@ -21,6 +21,7 @@ const PLATFORMS = [
     pattern: /^[A-Za-z0-9_.-]{1,39}$/,
     hint: "Any day you submitted a solution.",
     url: (handle) => `https://leetcode.com/u/${handle}/`,
+    action: { url: "https://leetcode.com/problemset/", label: "Solve a problem" },
   },
   {
     id: "codeforces",
@@ -30,6 +31,7 @@ const PLATFORMS = [
     pattern: /^[A-Za-z0-9_.-]{1,39}$/,
     hint: "Any day you submitted, solved or not.",
     url: (handle) => `https://codeforces.com/profile/${handle}`,
+    action: { url: "https://codeforces.com/problemset", label: "Solve a problem" },
   },
   {
     id: "chesscom",
@@ -39,6 +41,7 @@ const PLATFORMS = [
     pattern: /^[A-Za-z0-9_-]{3,25}$/,
     hint: "Any day you finished a game.",
     url: (handle) => `https://www.chess.com/member/${handle}`,
+    action: { url: "https://www.chess.com/play/online", label: "Play a game" },
   },
   {
     id: "codewars",
@@ -48,6 +51,7 @@ const PLATFORMS = [
     pattern: /^[A-Za-z0-9_.-]{1,40}$/,
     hint: "Any day you completed a kata.",
     url: (handle) => `https://www.codewars.com/users/${handle}`,
+    action: { url: "https://www.codewars.com/dashboard", label: "Train on a kata" },
   },
   {
     id: "lichess",
@@ -57,6 +61,7 @@ const PLATFORMS = [
     pattern: /^[A-Za-z0-9_-]{2,30}$/,
     hint: "Any day you finished a game.",
     url: (handle) => `https://lichess.org/@/${handle}`,
+    action: { url: "https://lichess.org/", label: "Play a game" },
   },
   {
     id: "gitlab",
@@ -78,6 +83,7 @@ const PLATFORMS = [
     pattern: /^[A-Za-z0-9_]{3,16}$/,
     hint: "Any day you submitted, via the kenkoooo mirror.",
     url: (handle) => `https://atcoder.jp/users/${handle}`,
+    action: { url: "https://atcoder.jp/contests/", label: "Find a contest" },
   },
   {
     id: "duolingo",
@@ -87,6 +93,7 @@ const PLATFORMS = [
     pattern: /^[A-Za-z0-9_.-]{1,39}$/,
     hint: "Your streak, straight from Duolingo.",
     url: (handle) => `https://www.duolingo.com/profile/${handle}`,
+    action: { url: "https://www.duolingo.com/learn", label: "Do a lesson" },
   },
 ];
 
@@ -110,12 +117,13 @@ export function validateHandle(id, handle) {
 
 /** The catalog as the client sees it — regexes and functions don't cross the wire. */
 export function platformCatalog() {
-  return PLATFORMS.map(({ id, label, emoji, placeholder, hint }) => ({
+  return PLATFORMS.map(({ id, label, emoji, placeholder, hint, action }) => ({
     id,
     label,
     emoji,
     placeholder,
     hint,
+    action: action ?? null,
   }));
 }
 
