@@ -8,6 +8,10 @@ export type User = {
   bio: string | null;
   location: string | null;
   avatarUrl: string | null;
+  /** How this account can sign in. Both can be true; never both false. */
+  hasPassword: boolean;
+  googleLinked: boolean;
+  googleEmail: string | null;
 };
 
 /** Every profile field is optional, so an update sends only what changed. */
@@ -243,6 +247,18 @@ export const api = {
     }).then((r) => r.user),
 
   logout: () => post("/auth/logout"),
+
+  /** Whether this deployment has Google credentials configured at all. */
+  authConfig: () => request<{ google: boolean }>("/auth/config"),
+
+  setPassword: (input: { password: string; currentPassword?: string }) =>
+    request<{ user: User }>("/auth/me/password", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }).then((r) => r.user),
+
+  unlinkGoogle: () =>
+    request<{ user: User }>("/auth/google", { method: "DELETE" }).then((r) => r.user),
 
   updateProfile: (input: ProfileInput) =>
     request<{ user: User }>("/auth/me", {

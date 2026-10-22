@@ -30,6 +30,13 @@ services:
       COOKIE_SECURE: "false"
       PORT: 4000
       UPLOAD_DIR: /app/uploads
+      # Google sign-in: unset means the routes 404 and the button is hidden, so the
+      # app runs fine until there are real credentials in the root .env.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
+      # Express serves the bundle here, so the callback redirects relatively.
+      APP_ORIGIN: ${APP_ORIGIN:-}
     ports:
       - "8080:4000"
     volumes:

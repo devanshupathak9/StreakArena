@@ -8,12 +8,21 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  username     String   @unique
-  passwordHash String
-  timezone     String   @default("UTC")
-  createdAt    DateTime @default(now())
+  id       String @id @default(cuid())
+  email    String @unique
+  username String @unique
+
+  // Null for an account that has only ever signed in with Google. A password and a
+  // Google identity are independent: an account can have either, or both.
+  passwordHash String?
+
+  // Google's `sub` claim, not the email — `sub` is stable, and a Google address can
+  // be changed by its owner. googleEmail is kept only to show which account is linked.
+  googleId    String? @unique
+  googleEmail String?
+
+  timezone  String   @default("UTC")
+  createdAt DateTime @default(now())
 
   // The public face of an account. All optional: an account works with none of it.
   displayName String?

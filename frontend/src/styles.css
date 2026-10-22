@@ -3480,3 +3480,126 @@ a.stat-card:hover {
   font-size: var(--step--2);
   color: var(--muted);
 }
+
+/* ---------- Google sign-in ---------- */
+
+/*
+ * Google's branding guidelines fix this button's own surface, so it is the one
+ * control in the app that doesn't take --accent: blue is the app's "clickable", and
+ * borrowing it here would both break the guideline and dilute the role. The dark
+ * variant is used because the app is dark; #e3e3e3 on #131314 is 14.5:1.
+ */
+.button-google {
+  background: #131314;
+  color: #e3e3e3;
+  box-shadow: inset 0 0 0 1px #8e918f;
+  font-weight: 500;
+}
+.button-google:hover:not(:disabled) {
+  background: #1e1f20;
+  color: #e3e3e3;
+}
+
+.auth-google-note {
+  margin-top: calc(-1 * var(--space-2));
+}
+
+/* A rule with the word sitting in it, so the two routes read as alternatives. */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+  color: var(--muted);
+  font-size: var(--step--1);
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ---------- Sign-in methods (profile) ---------- */
+
+.signin-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.signin-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.signin-icon {
+  flex: none;
+  color: var(--text-2);
+}
+
+/* Stands in for the logo at row scale, where the four-colour mark would be mush. */
+.signin-google {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  color: #4285f4;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.signin-text {
+  display: grid;
+  gap: 2px;
+  margin-right: auto;
+  min-width: 0;
+}
+.signin-text .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The shared Google button is full-width by default; in a row it shrinks to fit. */
+.signin-connect .button-google {
+  width: auto;
+  padding: 7px 12px;
+  font-size: var(--step--1);
+}
+
+.signin-form {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.signin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.signin-done {
+  color: var(--verdict);
+}
+
+@media (max-width: 480px) {
+  .signin-row {
+    flex-wrap: wrap;
+  }
+  .signin-text {
+    margin-right: 0;
+  }
+}

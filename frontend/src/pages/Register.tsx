@@ -1,17 +1,29 @@
-import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import AuthLayout from "../components/AuthLayout";
+import GoogleButton from "../components/GoogleButton";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../lib/api";
+import { authErrorMessage } from "../lib/authErrors";
 
 const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
 export default function Register() {
   const { register } = useAuth();
+  const [params] = useSearchParams();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(authErrorMessage(params.get("error")));
   const [busy, setBusy] = useState(false);
+  const [google, setGoogle] = useState(false);
+
+  useEffect(() => {
+    api
+      .authConfig()
+      .then((config) => setGoogle(config.google))
+      .catch(() => setGoogle(false));
+  }, []);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -30,6 +42,18 @@ export default function Register() {
     <AuthLayout>
       <h1>Start your streak</h1>
       <p className="muted">Track daily tasks and watch the tiles fill up.</p>
+
+      {google && (
+        <>
+          <GoogleButton label="Sign up with Google" />
+          <p className="muted small auth-google-note">
+            We only ask for your name, email and picture — never a password.
+          </p>
+          <div className="auth-divider">
+            <span>or</span>
+          </div>
+        </>
+      )}
 
       <form className="stack" onSubmit={handleSubmit}>
         <label>

@@ -40,7 +40,8 @@ leave.
 | File | Responsibility |
 | --- | --- |
 | `index.js` | app wiring, static bundle + SPA fallback, error handler |
-| `auth.js` | password hashing, JWT cookie, `requireAuth` / `loadUser`, `publicUser` |
+| `auth.js` | password hashing, JWT cookie, OAuth state cookie, `requireAuth` / `loadUser`, `publicUser` |
+| `google.js` | Google OAuth: the authorise URL, the code exchange, ID-token claims |
 | `streak.js` | timezone → calendar date, current/longest streak, date helpers |
 | `platforms.js` | the catalog: label, handle pattern, profile-URL template |
 | `sync.js` | one adapter per platform: *which days was this handle active?* |
@@ -48,6 +49,14 @@ leave.
 
 Authorisation is a `where` clause, not a check: every query is scoped by `userId`, so another
 user's id matches nothing rather than being caught by an `if`.
+
+An account has up to two ways in — a password and a Google identity — and needs at least one.
+`passwordHash` is nullable because a Google-only account has none, and `googleId` holds Google's
+`sub` claim rather than the email, because `sub` is stable and an address isn't. Google sign-in
+uses the server-side authorization-code flow, so the client secret never leaves the backend and
+the session cookie it ends with is the same first-party cookie password login sets — no second
+auth model, no CORS. It is off unless `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and
+`GOOGLE_REDIRECT_URI` are all set: the routes 404 and the frontend hides the button.
 
 `sync.js` adapters all return `Set<YYYY-MM-DD>` and throw user-facing messages. The route catches
 per platform, so one broken endpoint reports itself and the others still run. Nine platforms sync;

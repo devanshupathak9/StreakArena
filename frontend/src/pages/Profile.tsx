@@ -9,6 +9,7 @@ import AboutMe from "../components/profile/AboutMe";
 import Achievements from "../components/profile/Achievements";
 import ProfileHero from "../components/profile/ProfileHero";
 import ProfileStats from "../components/profile/ProfileStats";
+import SignInMethods from "../components/profile/SignInMethods";
 import StreakProgress from "../components/profile/StreakProgress";
 
 export default function Profile() {
@@ -63,6 +64,8 @@ export default function Profile() {
         <LinkedProfiles />
         <Achievements achievements={achievements} />
       </div>
+
+      <SignInMethods />
 
       {editing && <ProfileEditor onClose={() => setEditing(false)} />}
     </div>

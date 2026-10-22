@@ -46,6 +46,16 @@ instead run `cd backend && npm run dev` against the same database (it's publishe
   edits silently not applying.
 - **Prisma needs `openssl`** in the runtime image (already in the Dockerfile) and a `generate`
   after any schema change.
+- **`passwordHash` is nullable.** A Google-only account has none, so anything that compares a
+  password must guard on it first — `verifyPassword(password, null)` is not a failed login, it's
+  a crash. `publicUser` exposes `hasPassword` / `googleLinked` so the UI can tell them apart.
+- **The OAuth state cookie must stay `sameSite: "lax"`.** The Google callback arrives as a
+  top-level navigation from accounts.google.com; `"strict"` withholds the cookie and every
+  sign-in fails the state check with no clue why.
+- **Google sign-in can never work on `http://187.77.130.9:8080`.** Google requires an HTTPS
+  redirect URI and rejects raw IP addresses — that deployment fails both rules. `localhost` is
+  the one exemption, which is why dev works. Set `APP_ORIGIN=http://localhost:5173` in dev so
+  the callback lands back on Vite rather than on the API port.
 
 ## Conventions this codebase keeps
 
@@ -79,6 +89,16 @@ instead run `cd backend && npm run dev` against the same database (it's publishe
   Everything else is ink. Never borrow one role's colour for another's job.
 - **A self-reported day must never look like a verified one.** `Tile.verified` exists for exactly
   this; verified days are green, self-reported are neutral grey.
+- **Google sign-in never auto-links on a matching email.** Registration doesn't verify email, so
+  anyone can sign up with an address they don't own; linking on a match would hand the real owner
+  an account whose password someone else still knows. A matching email is refused
+  (`?error=google-exists`) and linking has to start from inside a session that already proved it
+  owns the account. Verifying email at signup is what would make auto-linking safe.
+- **Google can't be disconnected from an account with no password**, because that removes the
+  only way back in. The route refuses it and the UI explains why rather than hiding the button.
+- **The four-colour Google G is the one mark that ignores the palette rules.** Google's branding
+  guidelines forbid recolouring it. The exception stops at the logo — the button's own surface and
+  border are ordinary tokens, and blue stays the app's "clickable".
 
 ## Before touching the frontend
 
@@ -114,6 +134,11 @@ There is **no test suite and no browser in the agent session.** So:
 
 ## Open threads
 
+- **Google sign-in is built but has no credentials.** `GOOGLE_CLIENT_ID` /
+  `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` are unset, so `/api/auth/config` reports
+  `{"google":false}` and the button is hidden. Every branch was tested against a stubbed token
+  endpoint; what has never run is a real Google round trip. The domain is `streakarena.app`
+  (owned, HSTS-preloaded, so HTTPS is the only possibility there).
 - **No GitHub token yet.** Sync falls back to the public events API: ~90 days, 60 req/hr per IP
   shared by everyone. Adding `GITHUB_TOKEN` to `.env` upgrades it to the real contribution
   calendar automatically — the code path already exists.
