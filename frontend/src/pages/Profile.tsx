@@ -11,6 +11,7 @@ import ProfileHero from "../components/profile/ProfileHero";
 import ProfileStats from "../components/profile/ProfileStats";
 import SignInMethods from "../components/profile/SignInMethods";
 import AccountSafety from "../components/profile/AccountSafety";
+import ReminderSettings from "../components/profile/ReminderSettings";
 import StreakProgress from "../components/profile/StreakProgress";
 
 export default function Profile() {
@@ -66,6 +67,7 @@ export default function Profile() {
         <Achievements achievements={achievements} />
       </div>
 
+      <ReminderSettings />
       <SignInMethods />
       <AccountSafety />
 

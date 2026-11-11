@@ -28,7 +28,9 @@ export default function Scenery({ variant = "hero", className = "", offset }: Pr
         alt=""
         loading={isHero ? "eager" : "lazy"}
         decoding="async"
-        fetchPriority={isHero ? "high" : "auto"}
+        // React 18 doesn't know the camelCase prop and warns; the lowercase DOM
+        // attribute is what the browser reads anyway.
+        {...({ fetchpriority: isHero ? "high" : "auto" } as Record<string, string>)}
         style={offset === undefined ? undefined : { objectPosition: `${offset}% 50%` }}
       />
       <span className="scenery-scrim" />

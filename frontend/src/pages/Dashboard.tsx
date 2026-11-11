@@ -1,6 +1,7 @@
 import { useAppData } from "../context/AppData";
 import { useTaskActions } from "../hooks/useTaskActions";
 import ActivityFeed from "../components/ActivityFeed";
+import ReminderNudge from "../components/ReminderNudge";
 import Heatmap from "../components/Heatmap";
 import Hero from "../components/Hero";
 import QuoteTile from "../components/QuoteTile";
@@ -64,6 +65,8 @@ export default function Dashboard() {
 
       {error && <p className="error">{error}</p>}
 
+      <ReminderNudge hasDailyTasks={habits.length > 0} />
+
       {/* "How consistent have I been?" and "what did I do today?" answer together,
           so the two cards are one row and share a height. */}
       <section className="analytics-row">
@@ -87,7 +90,7 @@ export default function Dashboard() {
           onReschedule={handleReschedule}
         />
 
-        <ActivityFeed recent={data.recent} groups={groups} bestStreak={bestStreak} />
+        <ActivityFeed recent={data.recent} groups={groups} bestStreak={bestStreak} today={data.today} />
       </section>
 
       {/* Below everything, where it can't interrupt the hierarchy. */}

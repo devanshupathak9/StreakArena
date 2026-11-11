@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
 import { Check, Flame, Trophy, Users } from "lucide-react";
 import type { GroupSummary, RecentEvent } from "../lib/api";
-import { formatWhen } from "../lib/dates";
+import { relativeDay } from "../lib/dates";
 
-type Props = { recent: RecentEvent[]; groups: GroupSummary[] | null; bestStreak: number };
+type Props = { recent: RecentEvent[]; groups: GroupSummary[] | null; bestStreak: number; today: string };
 
 type Item = {
   key: string;
@@ -17,13 +17,35 @@ type Item = {
  * rank and streak lines are read off the same data the stat row shows. Nothing
  * here is invented, so the feed can't claim something the board contradicts.
  */
-function build(recent: RecentEvent[], groups: GroupSummary[] | null, bestStreak: number): Item[] {
-  const items: Item[] = recent.map((event) => ({
-    key: `done-${event.taskId}-${event.localDate}`,
-    kind: "done",
-    text: `Completed “${event.title}”${event.source === "synced" ? " — verified" : ""}`,
-    when: formatWhen(event.at),
-  }));
+function build(
+  recent: RecentEvent[],
+  groups: GroupSummary[] | null,
+  bestStreak: number,
+  today: string,
+): Item[] {
+  /*
+   * One line per task, not per day. A first sync backfills weeks at once and every
+   * row shares the same "just now" timestamp, which used to fill the feed with six
+   * identical lines. Days are named by their own date in the user's zone ("Today",
+   * "Yesterday") because that's what the completion is about, not when it was
+   * recorded.
+   */
+  const byTask = new Map<string, RecentEvent>();
+  for (const event of recent) {
+    const seen = byTask.get(event.taskId);
+    if (!seen || event.localDate > seen.localDate) byTask.set(event.taskId, event);
+  }
+  const items: Item[] = [...byTask.values()]
+    .sort((a, b) => b.localDate.localeCompare(a.localDate))
+    .map((event) => ({
+      key: `done-${event.taskId}`,
+      kind: "done",
+      text:
+        // No day count: `recent` is capped server-side, so a count here would read
+        // as the streak and contradict it.
+        `Completed “${event.title}”` + (event.source === "synced" ? " — verified" : ""),
+      when: relativeDay(event.localDate, today),
+    }));
 
   const ranked = (groups ?? []).filter((group) => group.yourRank !== null);
   if (ranked.length > 0) {
@@ -64,8 +86,8 @@ const ICONS = {
   streak: Flame,
 } as const;
 
-export default function ActivityFeed({ recent, groups, bestStreak }: Props) {
-  const items = build(recent, groups, bestStreak);
+export default function ActivityFeed({ recent, groups, bestStreak, today }: Props) {
+  const items = build(recent, groups, bestStreak, today);
 
   return (
     <section className="card feed-card">

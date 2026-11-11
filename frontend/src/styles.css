@@ -3857,3 +3857,308 @@ a.stat-card:hover {
     margin-right: 0;
   }
 }
+
+/* ------------------------------------------------------------------------- *
+ * Layout repairs measured from screenshots (Nov 2026)
+ * ------------------------------------------------------------------------- */
+
+/* Stat cards wrap onto another row before their labels wrap onto three lines.
+   Fixed column counts squeezed the group view's four cards into a five-column
+   grid; auto-fit sizes to whatever space the row actually has. */
+.stat-row {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+}
+@media (max-width: 720px) {
+  /* Two per row on a phone: five full-width cards pushed the tasks a whole
+     screen down, and the tasks are why someone opens the app. */
+  .stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+  .stat-card {
+    min-height: 0;
+    padding: var(--space-4);
+    gap: var(--space-2);
+  }
+  .stat-card .stat-support {
+    display: none;
+  }
+  .stat-value {
+    font-size: var(--step-2, 1.4rem);
+  }
+}
+
+/* The challenge table sizes by its own card, not the window: in the group view it
+   sits in a narrow column at desktop widths, where the fixed columns left the
+   title zero pixels and the "added by" name drew on top of the icon. */
+.challenge-table {
+  container-type: inline-size;
+}
+@container (max-width: 600px) {
+  .challenge-head-row,
+  .challenge-table .challenge-row {
+    grid-template-columns: minmax(0, 1fr) 96px 64px 32px;
+  }
+  .challenge-head-row span:nth-child(2),
+  .challenge-table .challenge-row > .muted.small {
+    display: none;
+  }
+}
+@container (max-width: 380px) {
+  .challenge-head-row,
+  .challenge-table .challenge-row {
+    grid-template-columns: minmax(0, 1fr) 56px 32px;
+  }
+  .challenge-head-row span:nth-child(3),
+  .challenge-table .challenge-cell-progress {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------------- *
+ * Notifications: the bell, its panel, and the phone top bar
+ * ------------------------------------------------------------------------- */
+
+button.nav-item {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--step-0);
+  text-align: left;
+  cursor: pointer;
+}
+.bell-trigger:focus-visible {
+  box-shadow: var(--ring);
+  outline: none;
+}
+.bell-icon {
+  position: relative;
+  display: inline-flex;
+}
+/* Every notification here is about a streak still open, so the unread count wears
+   the streak's colour rather than borrowing "danger" or "clickable". */
+.bell-badge {
+  position: absolute;
+  top: -7px;
+  right: -9px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--flame);
+  color: #1a0d03;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 17px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--nav-bg);
+}
+.bell-panel {
+  position: fixed;
+  z-index: 60;
+  top: var(--space-4);
+  left: calc(var(--sidebar-w) + var(--space-3));
+  width: min(380px, calc(100vw - var(--space-6)));
+  max-height: min(560px, calc(100vh - var(--space-7)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  overflow: hidden;
+  box-shadow: var(--shadow), var(--shadow-lg);
+}
+.shell:has(.sidebar-rail) .bell-panel {
+  left: calc(var(--rail-w) + var(--space-3));
+}
+.bell-icon-variant .bell-panel,
+.bell-icon .bell-panel {
+  left: auto;
+}
+.bell-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.bell-panel-head h2 {
+  font-size: var(--step-1);
+}
+.bell-panel-head .link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.bell-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.bell-item {
+  width: 100%;
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bell-item:hover {
+  background: var(--surface-2);
+}
+.bell-item.is-unread {
+  border-color: color-mix(in srgb, var(--flame) 45%, transparent);
+}
+.bell-item-title {
+  font-weight: 600;
+  font-size: var(--step-0);
+}
+
+.mobile-topbar {
+  display: none;
+}
+@media (max-width: 767px) {
+  .mobile-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-3) var(--space-4);
+    padding-top: calc(var(--space-3) + env(safe-area-inset-top, 0px));
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .mobile-topbar .bell-panel {
+    top: calc(64px + env(safe-area-inset-top, 0px));
+    left: var(--space-3);
+    right: var(--space-3);
+    width: auto;
+  }
+}
+
+/* ------------------------------------------------------------------------- *
+ * Reminder settings and the dashboard nudge
+ * ------------------------------------------------------------------------- */
+
+.reminder-grid {
+  display: grid;
+  gap: var(--space-3);
+}
+.reminder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+}
+.reminder-row-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.reminder-row-text strong {
+  font-size: var(--step-0);
+}
+.reminder-row input[type="time"] {
+  width: auto;
+  min-width: 120px;
+  color-scheme: dark;
+}
+.switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 42px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text);
+  transition: transform var(--transition);
+}
+/* On is blue: a switch is a control, and blue is the app's "clickable". */
+.switch[aria-checked="true"] {
+  background: var(--accent);
+}
+.switch[aria-checked="true"]::after {
+  transform: translateX(18px);
+}
+.switch:focus-visible {
+  box-shadow: var(--ring);
+  outline: none;
+}
+.switch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nudge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.nudge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--flame) 16%, transparent);
+  color: var(--flame);
+}
+.nudge-text {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.nudge-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+@media (max-width: 720px) {
+  .nudge {
+    flex-wrap: wrap;
+  }
+  .nudge-actions {
+    width: 100%;
+  }
+  .nudge-actions .button {
+    flex: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .switch,
+  .switch::after {
+    transition: none;
+  }
+}

@@ -12,6 +12,8 @@ import { groupsRouter } from "./routes/groups.js";
 import { profilesRouter } from "./routes/profiles.js";
 import { tasksRouter } from "./routes/tasks.js";
 import { startScheduler } from "./scheduler.js";
+import { startReminders } from "./reminders.js";
+import { notificationsRouter } from "./routes/notifications.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -68,6 +70,7 @@ app.use("/api", avatarRouter);
 app.use("/api", profilesRouter);
 app.use("/api", groupsRouter);
 app.use("/api", globalRouter);
+app.use("/api", notificationsRouter);
 app.use("/api", tasksRouter);
 
 // In a container the built React bundle sits next to the API, so one process and
@@ -102,4 +105,5 @@ app.use((err, req, res, next) => {
 app.listen(port, "0.0.0.0", () => {
   console.log(`StreakArena listening on port ${port}`);
   startScheduler();
+  startReminders().catch((error) => console.error("reminders failed to start:", error.message));
 });

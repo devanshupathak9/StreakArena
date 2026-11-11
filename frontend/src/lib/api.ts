@@ -242,6 +242,30 @@ export type GroupDetail = {
   standings: Standing[];
 };
 
+export type AppNotification = {
+  id: string;
+  kind: "reminder" | "last-call" | "test" | string;
+  title: string;
+  body: string;
+  url: string;
+  localDate: string;
+  read: boolean;
+  at: string;
+};
+
+export type ReminderSettings = {
+  enabled: boolean;
+  /** "HH:MM", 24-hour, in the user's own timezone. */
+  time: string;
+  lastCall: boolean;
+  email: boolean;
+  push: boolean;
+  available: { push: boolean; email: boolean; emailVerified: boolean };
+  vapidPublicKey: string | null;
+  /** How many browsers/phones are subscribed to push. */
+  devices: number;
+};
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -288,7 +312,25 @@ export const api = {
   logout: () => post("/auth/logout"),
 
   /** Whether this deployment has Google credentials configured at all. */
-  authConfig: () => request<{ google: boolean; email: boolean }>("/auth/config"),
+  authConfig: () => request<{ google: boolean; email: boolean; push: boolean }>("/auth/config"),
+
+  notifications: () => request<{ items: AppNotification[]; unread: number }>("/notifications"),
+
+  markNotificationsRead: () => post("/notifications/read"),
+
+  reminders: () => request<ReminderSettings>("/reminders"),
+
+  updateReminders: (input: Partial<Pick<ReminderSettings, "enabled" | "time" | "lastCall" | "email" | "push">>) =>
+    request<ReminderSettings>("/reminders", { method: "PUT", body: JSON.stringify(input) }),
+
+  testReminder: () =>
+    request<{ ok: boolean; channels: { push: number; email: boolean } }>("/reminders/test", { method: "POST" }),
+
+  savePushSubscription: (subscription: PushSubscriptionJSON) =>
+    post("/push/subscriptions", subscription),
+
+  deletePushSubscription: (endpoint: string) =>
+    request<{ ok: boolean }>("/push/subscriptions", { method: "DELETE", body: JSON.stringify({ endpoint }) }),
 
   forgotPassword: (email: string) => post("/auth/forgot", { email }),
 

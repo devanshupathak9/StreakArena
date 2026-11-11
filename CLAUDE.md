@@ -50,6 +50,13 @@ instead run `cd backend && npm run dev` against the same database (it's publishe
   "Forgot password?", so an unconfigured deployment never promises an email it can't send.
 - **Rate limits are in memory and key on IP**, so set `TRUST_PROXY=1` behind Caddy/ALB or
   every request shares the proxy's bucket. Login is also limited per account (10/15 min).
+- **Reminders run on pg-boss**, a job queue inside our own Postgres (schema `pgboss`, created
+  on first boot — not a Prisma migration, don't add it to one). `reminders-tick` fires every 15
+  min and enqueues `reminders-send` per due user; delivery is at most once per (user, kind,
+  local day) because `Notification` has that unique key and is written *before* anything is
+  sent. Push needs `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`; rotating them silently orphans every
+  existing subscription. A reminder only fires if a daily task is still open *after* a sync, so
+  finished platform work is never nagged.
 - **Background sync runs every `SYNC_INTERVAL_MINUTES` (default 180).** A `JobLease` row keeps
   it to one instance. Set it to 0 when debugging sync by hand so the timer doesn't interleave.
 
@@ -145,6 +152,9 @@ the five-stat row and the quote tiles are deliberate — don't "fix" them back.
 Routes are `/` (dashboard), `/tasks`, `/groups`, `/groups/:id`, `/leaderboard`, `/profile`,
 `/about`. `/global` redirects to `/leaderboard`. `/forgot-password`, `/reset-password` and
 `/verify-email` work signed out (the last two signed in too — people open emails on phones).
+Notifications are a bell row in the sidebar (and a slim top bar on phones, which have no
+sidebar) rather than the spec's floating top-right cluster: every banner already puts a button
+or quote tile in that corner, so a floating cluster collided with all of them.
 
 Three palette values were lightened from the spec because they failed AA as small text;
 each is commented at the token in `styles.css` with the measured ratio. Colour roles are

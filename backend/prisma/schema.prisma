@@ -32,6 +32,15 @@ model User {
   // password change or reset does, so a stolen cookie dies with the old password.
   tokenVersion Int @default(0)
 
+  // Daily reminder schedule, read in the user's own timezone. reminderTime is
+  // "HH:MM"; the last call goes out at a fixed 22:30 if a live streak is still
+  // at risk. Channels can be switched off independently.
+  reminderEnabled Boolean @default(true)
+  reminderTime    String  @default("20:00")
+  lastCallEnabled Boolean @default(true)
+  reminderEmail   Boolean @default(true)
+  reminderPush    Boolean @default(true)
+
   // The public face of an account. All optional: an account works with none of it.
   displayName String?
   bio         String?
@@ -46,6 +55,8 @@ model User {
   memberships       GroupMember[]
   messages          GroupMessage[]
   authTokens        AuthToken[]
+  pushSubscriptions PushSubscription[]
+  notifications     Notification[]
 }
 
 // A group of friends competing on the same daily challenges.
@@ -241,4 +252,42 @@ model AuthToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, purpose])
+}
+
+// One browser or phone that agreed to receive push notifications. The endpoint is
+// the push service's URL for that device; a 404/410 from it means the user revoked
+// permission or the browser dropped it, and the row is deleted.
+model PushSubscription {
+  id         String    @id @default(cuid())
+  userId     String
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Everything we've told a user: the bell's inbox, and — through the unique key —
+// the guarantee that a given kind of reminder goes out at most once per local day,
+// however many workers or retries race for it.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  kind      String // "reminder" | "last-call" | "test"
+  title     String
+  body      String
+  url       String    @default("/")
+  localDate DateTime  @db.Date
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, localDate])
+  @@index([userId, createdAt])
 }

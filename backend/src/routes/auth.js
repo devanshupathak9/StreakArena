@@ -23,6 +23,7 @@ import {
 import { authLimiter, loginLimiter, mailLimiter } from "../limits.js";
 import { APP_URL, layout, mailEnabled, sendMail } from "../mailer.js";
 import { consumeToken, issueToken } from "../tokens.js";
+import { pushEnabled } from "../notify.js";
 import { isValidTimezone } from "../streak.js";
 import { openStored, removeStored, storeUpload, upload, uploadErrorMessage } from "../uploads.js";
 
@@ -242,7 +243,7 @@ function backToApp(res, path) {
  */
 authRouter.get("/config", (req, res) => {
   // `email` tells the UI whether "Forgot password?" can actually deliver anything.
-  res.json({ google: googleEnabled, email: mailEnabled });
+  res.json({ google: googleEnabled, email: mailEnabled, push: pushEnabled });
 });
 
 /**

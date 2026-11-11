@@ -12,6 +12,7 @@ import {
 import AccountRow from "./AccountRow";
 import GroupTree from "./GroupTree";
 import NavItem from "./NavItem";
+import NotificationBell from "./NotificationBell";
 
 const STORAGE_KEY = "sa.sidebar.collapsed";
 /** Below this the rail is the sensible default; the tab bar takes over lower still. */
@@ -85,6 +86,7 @@ export default function Sidebar() {
         <GroupTree collapsed={collapsed} />
         <NavItem to="/leaderboard" label="Leaderboard" icon={BarChart3} collapsed={collapsed} />
         <NavItem to="/profile" label="Profile" icon={User} collapsed={collapsed} />
+        <NotificationBell variant="row" collapsed={collapsed} />
       </nav>
 
       <AccountRow collapsed={collapsed} />
