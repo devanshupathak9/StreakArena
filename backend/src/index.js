@@ -10,6 +10,7 @@ import { globalRouter } from "./routes/global.js";
 import { groupsRouter } from "./routes/groups.js";
 import { profilesRouter } from "./routes/profiles.js";
 import { tasksRouter } from "./routes/tasks.js";
+import { startScheduler } from "./scheduler.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -60,4 +61,7 @@ app.use((err, req, res, next) => {
 });
 
 // 0.0.0.0 so the port is reachable from outside the container.
-app.listen(port, "0.0.0.0", () => console.log(`StreakArena listening on port ${port}`));
+app.listen(port, "0.0.0.0", () => {
+  console.log(`StreakArena listening on port ${port}`);
+  startScheduler();
+});

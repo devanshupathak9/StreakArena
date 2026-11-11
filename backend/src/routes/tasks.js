@@ -372,7 +372,7 @@ tasksRouter.delete("/tasks/:id/complete/:date", async (req, res) => {
  * but not quietly rewrite it. Platforms are fetched once each, not once per task, and
  * one platform failing doesn't stop the others.
  */
-async function runSync(user, taskFilter = null) {
+export async function runSync(user, taskFilter = null) {
   const today = todayInTz(user.timezone);
   const since = addDays(today, -(HEATMAP_DAYS - 1));
 

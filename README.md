@@ -75,6 +75,10 @@ real activity back, so a streak is evidence rather than self-report.
 | Lichess | Finish a game |
 | Duolingo | Keep your streak alive |
 
+Sync also runs **on its own**: every `SYNC_INTERVAL_MINUTES` (default 180) the server checks
+everyone who is stale, and opening the app quietly syncs anything older than 30 minutes — so a
+streak that was really kept can't break because nobody pressed a button.
+
 Sync is **additive**. A day you ticked yourself is never touched, and a day a platform stops
 reporting is left alone rather than revoked — sync can add to your record but not quietly rewrite
 it. Each platform is fetched once per sync, not once per task, and one platform failing doesn't

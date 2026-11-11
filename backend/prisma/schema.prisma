@@ -207,3 +207,12 @@ model PlatformActivity {
   @@unique([userId, platform, localDate, externalId])
   @@index([userId, platform, localDate])
 }
+
+// A lease that lets exactly one app instance run a background job (the scheduled
+// sync) at a time. A row, not a Postgres advisory lock, because Prisma pools
+// connections and a session-level lock can't be reliably released on the same one.
+model JobLease {
+  name   String   @id
+  holder String
+  until  DateTime
+}

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   api,
   type Dashboard as DashboardData,
@@ -41,6 +41,13 @@ function describe(result: SyncResult) {
   if (result.added === 0) return `${result.label} is already up to date`;
   return `Synced ${result.added} day${result.added === 1 ? "" : "s"} from ${result.label}`;
 }
+
+/** Older than this and opening the app quietly syncs first. */
+const STALE_AFTER_MS = 30 * 60 * 1000;
+
+// Once per page load, not once per mount: the dashboard and tasks page both use this
+// hook, and flipping between them shouldn't fire a sync each time.
+let autoSyncStarted = false;
 
 /**
  * Everything the dashboard and the tasks page both do to a task. Shared so the two
@@ -152,6 +159,40 @@ export function useTaskActions() {
       setSyncing(null);
     }
   }
+
+  /*
+   * Opening the app is the moment someone wants to see today's streak, so a stale
+   * platform is synced quietly in the background — no toasts unless it found
+   * something, and failures stay silent here because the server also syncs on a
+   * timer and the manual button still reports errors.
+   */
+  useEffect(() => {
+    if (!dashboard || autoSyncStarted) return;
+    const stale = dashboard.tasks.some(
+      (task) =>
+        task.platform?.handle &&
+        (!task.platform.lastSyncedAt ||
+          Date.now() - Date.parse(task.platform.lastSyncedAt) > STALE_AFTER_MS),
+    );
+    if (!stale) return;
+    autoSyncStarted = true;
+
+    void (async () => {
+      try {
+        const response = await api.syncAll();
+        const found = response.results.filter((result) => result.ok && result.added > 0);
+        if (found.length) {
+          setToasts((current) => [
+            ...current,
+            ...found.map((result, index) => ({ id: Date.now() + index, ok: true, text: describe(result) })),
+          ]);
+          await load();
+        }
+      } catch {
+        // Silent by design; see above.
+      }
+    })();
+  }, [dashboard, load]);
 
   return {
     dashboard,
