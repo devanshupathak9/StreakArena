@@ -21,6 +21,25 @@ Over plain HTTP set `COOKIE_SECURE=false` (the compose file already does), or br
 drop the auth cookie and login looks like it does nothing. Put a real domain and HTTPS in front
 before this is more than a test, and change `JWT_SECRET`.
 
+### On a domain, with HTTPS
+
+Point an A record for your domain at the server, open ports 80 and 443, then:
+
+```bash
+cat >> .env <<'ENV'
+DOMAIN=streakarena.app
+JWT_SECRET=<openssl rand -hex 32>
+RESEND_API_KEY=<from resend.com, optional>
+GITHUB_TOKEN=<no-scope token, optional>
+ENV
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+Caddy fetches and renews the certificate. The overlay switches the cookie to `Secure`, stops
+publishing :8080, and makes rate limits trust Caddy's forwarded client IP. Google sign-in needs
+`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in `.env` and the redirect URI
+`https://<domain>/api/auth/google/callback` registered in the Google console.
+
 ## Stack
 
 | Layer | Choice |

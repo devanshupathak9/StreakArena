@@ -1,0 +1,11 @@
+# HTTPS in front of the app. Caddy gets and renews the certificate itself; the only
+# prerequisite is DNS: an A record for the domain pointing at this server, and ports
+# 80/443 open. Used by docker-compose.prod.yml.
+{$DOMAIN:streakarena.app} {
+	encode zstd gzip
+	reverse_proxy app:4000
+}
+
+www.{$DOMAIN:streakarena.app} {
+	redir https://{$DOMAIN:streakarena.app}{uri} permanent
+}

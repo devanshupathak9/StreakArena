@@ -1,0 +1,38 @@
+# Production overlay: real HTTPS on a domain via Caddy.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Differences from the plain file: the app is no longer published on :8080 (only
+# Caddy is public), the cookie is Secure, rate limits trust Caddy's forwarded IP,
+# and email links point at the real domain.
+services:
+  app:
+    ports: !reset []
+    environment:
+      COOKIE_SECURE: "true"
+      NODE_ENV: production
+      TRUST_PROXY: "1"
+      APP_URL: https://${DOMAIN:-streakarena.app}
+      GOOGLE_REDIRECT_URI: https://${DOMAIN:-streakarena.app}/api/auth/google/callback
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env to a long random string}
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: streakarena-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:-streakarena.app}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy-data:
+  caddy-config:
