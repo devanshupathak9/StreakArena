@@ -26,6 +26,20 @@ instead run `cd backend && npm run dev` against the same database (it's publishe
 
 `backend/.env` and root `.env` both exist and are gitignored. Root `.env` feeds docker-compose.
 
+## Hosted test deployment (Vercel + Railway)
+
+- **https://streakarena.vercel.app** — Vercel project `streakarena` (root `frontend/`). It serves
+  the bundle and rewrites `/api/*` to Railway (`frontend/vercel.json`), so the browser sees one
+  origin and the cookie works unchanged.
+- **Railway project `streakarena`**: service `api` (root `Dockerfile`, branch `production-ready`,
+  auto-deploys on push; uploads volume at `/data`, `UPLOAD_DIR=/data/uploads`) and `Postgres`.
+  Migrations run on boot. `TRUST_PROXY=2` because requests cross Vercel then Railway's edge.
+- Railway redeploys on every push to the branch. Vercel's production branch is `master`, so a push
+  to `production-ready` only makes a preview — **production on Vercel is redeployed by hand**
+  (only needed when `frontend/` changes).
+- The Railway URL in `vercel.json` is the service's generated domain; if the service is ever
+  recreated, update it there.
+
 ## Things that will bite you
 
 - **Sessions carry `tokenVersion`.** `loadUser` rejects a cookie whose `v` is behind the
