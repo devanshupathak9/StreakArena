@@ -8,6 +8,9 @@ import Leaderboard from "./pages/Leaderboard";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import VerifyEmail from "./pages/VerifyEmail";
 import Tasks from "./pages/Tasks";
 import { AppDataProvider } from "./context/AppData";
 import { useAuth } from "./context/AuthContext";
@@ -23,6 +26,9 @@ export default function App() {
     return (
       <Routes>
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="*" element={<Login />} />
       </Routes>
     );
@@ -44,6 +50,8 @@ export default function App() {
               <Route path="/global" element={<Navigate to="/leaderboard" replace />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/about" element={<About />} />
+              <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>

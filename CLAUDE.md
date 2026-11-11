@@ -28,6 +28,17 @@ instead run `cd backend && npm run dev` against the same database (it's publishe
 
 ## Things that will bite you
 
+- **Sessions carry `tokenVersion`.** `loadUser` rejects a cookie whose `v` is behind the
+  column; a password change/reset or "sign out everywhere" bumps it. Anything that issues a
+  cookie must pass the *user row* to `setAuthCookie`, not an id.
+- **Mail without `RESEND_API_KEY` goes to the log** (`[mail:dev]`). That's how to click a
+  reset or verification link locally. `/api/auth/config` reports `email:false` and the UI hides
+  "Forgot password?", so an unconfigured deployment never promises an email it can't send.
+- **Rate limits are in memory and key on IP**, so set `TRUST_PROXY=1` behind Caddy/ALB or
+  every request shares the proxy's bucket. Login is also limited per account (10/15 min).
+- **Background sync runs every `SYNC_INTERVAL_MINUTES` (default 180).** A `JobLease` row keeps
+  it to one instance. Set it to 0 when debugging sync by hand so the timer doesn't interleave.
+
 - **`npm start` is not nodemon.** It won't pick up your edits. Restart it, or you'll debug a
   phantom failure against stale code. This has already happened once.
 - **Never put a process name in the same command line as `pkill -f`** — the pattern matches your
@@ -95,11 +106,11 @@ instead run `cd backend && npm run dev` against the same database (it's publishe
   Everything else is ink. Never borrow one role's colour for another's job.
 - **A self-reported day must never look like a verified one.** `Tile.verified` exists for exactly
   this; verified days are green, self-reported are neutral grey.
-- **Google sign-in never auto-links on a matching email.** Registration doesn't verify email, so
-  anyone can sign up with an address they don't own; linking on a match would hand the real owner
-  an account whose password someone else still knows. A matching email is refused
-  (`?error=google-exists`) and linking has to start from inside a session that already proved it
-  owns the account. Verifying email at signup is what would make auto-linking safe.
+- **Google sign-in auto-links only to a verified email.** Anyone can register an address
+  they don't own, so linking on a bare match would hand the real owner an account whose
+  password someone else knows. Once the account has clicked our verification link
+  (`emailVerifiedAt`), both sides have proved the same inbox and the callback links and signs
+  in. An unverified match is still refused with `?error=google-exists`.
 - **Google can't be disconnected from an account with no password**, because that removes the
   only way back in. The route refuses it and the UI explains why rather than hiding the button.
 - **The four-colour Google G is the one mark that ignores the palette rules.** Google's branding
@@ -118,7 +129,8 @@ no gradients. **The user replaced that with the reference mockup.** Cards, the h
 the five-stat row and the quote tiles are deliberate — don't "fix" them back.
 
 Routes are `/` (dashboard), `/tasks`, `/groups`, `/groups/:id`, `/leaderboard`, `/profile`,
-`/about`. `/global` redirects to `/leaderboard`.
+`/about`. `/global` redirects to `/leaderboard`. `/forgot-password`, `/reset-password` and
+`/verify-email` work signed out (the last two signed in too — people open emails on phones).
 
 Three palette values were lightened from the spec because they failed AA as small text;
 each is commented at the token in `styles.css` with the measured ratio. Colour roles are

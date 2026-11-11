@@ -10,6 +10,7 @@ import Achievements from "../components/profile/Achievements";
 import ProfileHero from "../components/profile/ProfileHero";
 import ProfileStats from "../components/profile/ProfileStats";
 import SignInMethods from "../components/profile/SignInMethods";
+import AccountSafety from "../components/profile/AccountSafety";
 import StreakProgress from "../components/profile/StreakProgress";
 
 export default function Profile() {
@@ -66,6 +67,7 @@ export default function Profile() {
       </div>
 
       <SignInMethods />
+      <AccountSafety />
 
       {editing && <ProfileEditor onClose={() => setEditing(false)} />}
     </div>

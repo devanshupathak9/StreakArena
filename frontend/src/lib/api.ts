@@ -10,6 +10,8 @@ export type User = {
   avatarUrl: string | null;
   /** How this account can sign in. Both can be true; never both false. */
   hasPassword: boolean;
+  /** The owner clicked the link we mailed, or arrived via Google. */
+  emailVerified: boolean;
   googleLinked: boolean;
   googleEmail: string | null;
 };
@@ -286,7 +288,29 @@ export const api = {
   logout: () => post("/auth/logout"),
 
   /** Whether this deployment has Google credentials configured at all. */
-  authConfig: () => request<{ google: boolean }>("/auth/config"),
+  authConfig: () => request<{ google: boolean; email: boolean }>("/auth/config"),
+
+  forgotPassword: (email: string) => post("/auth/forgot", { email }),
+
+  resetPassword: (input: { token: string; password: string }) =>
+    request<{ user: User }>("/auth/reset", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }).then((r) => r.user),
+
+  verifyEmail: (token: string) =>
+    request<{ user: User }>("/auth/verify", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }).then((r) => r.user),
+
+  resendVerification: () => post("/auth/verify/send"),
+
+  logoutEverywhere: () => post("/auth/logout-all"),
+
+  /** `password` for an account that has one; otherwise `confirm` is the username typed back. */
+  deleteAccount: (input: { password?: string; confirm?: string }) =>
+    request<{ ok: boolean }>("/auth/me", { method: "DELETE", body: JSON.stringify(input) }),
 
   setPassword: (input: { password: string; currentPassword?: string }) =>
     request<{ user: User }>("/auth/me/password", {

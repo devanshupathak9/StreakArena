@@ -16,11 +16,15 @@ export default function Login() {
   const [error, setError] = useState(authErrorMessage(params.get("error")));
   const [busy, setBusy] = useState(false);
   const [google, setGoogle] = useState(false);
+  const [mail, setMail] = useState(false);
 
   useEffect(() => {
     api
       .authConfig()
-      .then((config) => setGoogle(config.google))
+      .then((config) => {
+        setGoogle(config.google);
+        setMail(config.email);
+      })
       .catch(() => setGoogle(false));
   }, []);
 
@@ -72,6 +76,13 @@ export default function Login() {
             required
           />
         </label>
+
+        {/* Only offered where the server can actually send the email. */}
+        {mail && (
+          <p className="small">
+            <Link to="/forgot-password">Forgot password?</Link>
+          </p>
+        )}
 
         {error && <p className="error">{error}</p>}
 
