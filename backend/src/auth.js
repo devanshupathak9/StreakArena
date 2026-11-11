@@ -29,8 +29,14 @@ export function verifyPassword(password, hash) {
   return bcrypt.compare(password, hash);
 }
 
-export function setAuthCookie(res, userId) {
-  const token = jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: "7d" });
+/**
+ * `v` is the user's tokenVersion at sign-in. loadUser rejects a cookie whose version
+ * is behind, so bumping the column signs out every session at once. Cookies issued
+ * before versions existed carry none and read as 0, the column's default — so this
+ * shipped without logging anyone out.
+ */
+export function setAuthCookie(res, user) {
+  const token = jwt.sign({ sub: user.id, v: user.tokenVersion ?? 0 }, JWT_SECRET, { expiresIn: "7d" });
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -81,7 +87,9 @@ export function requireAuth(req, res, next) {
   const token = req.cookies?.[COOKIE_NAME];
   if (!token) return res.status(401).json({ error: "Not signed in" });
   try {
-    req.userId = jwt.verify(token, JWT_SECRET).sub;
+    const payload = jwt.verify(token, JWT_SECRET);
+    req.userId = payload.sub;
+    req.tokenVersion = payload.v ?? 0;
     next();
   } catch {
     clearAuthCookie(res);
@@ -99,6 +107,10 @@ export async function loadUser(req, res, next) {
     clearAuthCookie(res);
     return res.status(401).json({ error: "Account no longer exists" });
   }
+  if ((user.tokenVersion ?? 0) !== req.tokenVersion) {
+    clearAuthCookie(res);
+    return res.status(401).json({ error: "Session expired — sign in again" });
+  }
   req.user = user;
   next();
 }
@@ -114,6 +126,7 @@ export function publicUser(user) {
     // How this account can sign in. The UI needs both: it must not offer to
     // disconnect Google from an account that would then have no way back in.
     hasPassword: Boolean(user.passwordHash),
+    emailVerified: Boolean(user.emailVerifiedAt),
     googleLinked: Boolean(user.googleId),
     googleEmail: user.googleEmail ?? null,
     displayName: user.displayName ?? null,

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../db.js";
 import { loadUser, requireAuth } from "../auth.js";
+import { writeLimiter } from "../limits.js";
 import { getPlatform, isPlatformId } from "../platforms.js";
 import { currentStreak, fromDbDate, longestStreak, todayInTz } from "../streak.js";
 import { openStored, removeStored, storeUpload, upload, uploadErrorMessage } from "../uploads.js";
@@ -570,7 +571,7 @@ const acceptAttachment = (req, res, next) =>
     error ? res.status(400).json({ error: uploadErrorMessage(error) }) : next(),
   );
 
-groupsRouter.post("/groups/:id/messages", acceptAttachment, async (req, res) => {
+groupsRouter.post("/groups/:id/messages", writeLimiter, acceptAttachment, async (req, res) => {
   const group = await requireMembership(req.params.id, req.user.id);
   if (!group) {
     // The file arrived before membership could be checked, so it doesn't stay.

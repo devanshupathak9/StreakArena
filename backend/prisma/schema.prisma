@@ -24,6 +24,14 @@ model User {
   timezone  String   @default("UTC")
   createdAt DateTime @default(now())
 
+  // Set once the owner clicks the link we mailed (or arrives via Google, which only
+  // hands over verified addresses). Null means the address is unproven.
+  emailVerifiedAt DateTime?
+
+  // Baked into every session JWT. Bumping it signs out every session at once — a
+  // password change or reset does, so a stolen cookie dies with the old password.
+  tokenVersion Int @default(0)
+
   // The public face of an account. All optional: an account works with none of it.
   displayName String?
   bio         String?
@@ -37,6 +45,7 @@ model User {
   challengesCreated GroupTask[]       @relation("ChallengesCreated")
   memberships       GroupMember[]
   messages          GroupMessage[]
+  authTokens        AuthToken[]
 }
 
 // A group of friends competing on the same daily challenges.
@@ -215,4 +224,21 @@ model JobLease {
   name   String   @id
   holder String
   until  DateTime
+}
+
+// Single-use, short-lived tokens mailed to the account's address: password resets
+// and email verification. Only a SHA-256 of the token is stored, so a database leak
+// doesn't hand out working reset links.
+model AuthToken {
+  id        String    @id @default(cuid())
+  userId    String
+  purpose   String // "reset" | "verify"
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
 }

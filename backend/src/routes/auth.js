@@ -20,6 +20,9 @@ import {
   newNonce,
   usernameSeed,
 } from "../google.js";
+import { authLimiter, loginLimiter, mailLimiter } from "../limits.js";
+import { APP_URL, layout, mailEnabled, sendMail } from "../mailer.js";
+import { consumeToken, issueToken } from "../tokens.js";
 import { isValidTimezone } from "../streak.js";
 import { openStored, removeStored, storeUpload, upload, uploadErrorMessage } from "../uploads.js";
 
@@ -58,7 +61,31 @@ function avatarProblem(value) {
 }
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
-authRouter.post("/register", async (req, res) => {
+/**
+ * Mail is best-effort from the request's point of view: a provider outage must not
+ * turn a successful sign-up into an error, so failures are logged, not thrown.
+ */
+async function sendVerification(user) {
+  try {
+    const token = await issueToken(user.id, "verify");
+    const url = `${APP_URL}/verify-email?token=${token}`;
+    await sendMail({
+      to: user.email,
+      subject: "Confirm your StreakArena email",
+      ...layout({
+        heading: "Confirm your email",
+        body: `Hi ${user.displayName || user.username} — confirm this address so you can reset your password if you ever need to.`,
+        cta: "Confirm email",
+        url,
+        footer: "Didn't sign up? Ignore this email and nothing happens.",
+      }),
+    });
+  } catch (error) {
+    console.error("verification mail failed:", error.message);
+  }
+}
+
+authRouter.post("/register", authLimiter, async (req, res) => {
   const email = String(req.body?.email ?? "").trim().toLowerCase();
   const username = String(req.body?.username ?? "").trim();
   const password = String(req.body?.password ?? "");
@@ -82,11 +109,12 @@ authRouter.post("/register", async (req, res) => {
   const user = await prisma.user.create({
     data: { email, username, timezone, passwordHash: await hashPassword(password) },
   });
-  setAuthCookie(res, user.id);
+  setAuthCookie(res, user);
+  void sendVerification(user);
   res.status(201).json({ user: publicUser(user) });
 });
 
-authRouter.post("/login", async (req, res) => {
+authRouter.post("/login", authLimiter, loginLimiter, async (req, res) => {
   const identifier = String(req.body?.emailOrUsername ?? "").trim();
   const password = String(req.body?.password ?? "");
   if (!identifier || !password) {
@@ -102,7 +130,7 @@ authRouter.post("/login", async (req, res) => {
     return res.status(401).json({ error: "Incorrect email/username or password" });
   }
 
-  setAuthCookie(res, user.id);
+  setAuthCookie(res, user);
   res.json({ user: publicUser(user) });
 });
 
@@ -213,7 +241,8 @@ function backToApp(res, path) {
  * so an unconfigured deployment simply doesn't offer it.
  */
 authRouter.get("/config", (req, res) => {
-  res.json({ google: googleEnabled });
+  // `email` tells the UI whether "Forgot password?" can actually deliver anything.
+  res.json({ google: googleEnabled, email: mailEnabled });
 });
 
 /**
@@ -333,7 +362,7 @@ authRouter.get("/google/callback", async (req, res) => {
         data: { googleEmail: claims.email },
       });
     }
-    setAuthCookie(res, byGoogleId.id);
+    setAuthCookie(res, byGoogleId);
     return backToApp(res, "/");
   }
 
@@ -346,7 +375,23 @@ authRouter.get("/google/callback", async (req, res) => {
    * to. Linking has to start from inside a session that proved it owns the account.
    */
   const byEmail = await prisma.user.findUnique({ where: { email: claims.email } });
-  if (byEmail) return backToApp(res, "/login?error=google-exists");
+  if (byEmail) {
+    // Once the account's owner has clicked our verification link, both sides have
+    // proved the same inbox and linking is safe — the hole described above only
+    // exists for an unverified address.
+    if (!byEmail.emailVerifiedAt || byEmail.googleId) return backToApp(res, "/login?error=google-exists");
+    const linked = await prisma.user.update({
+      where: { id: byEmail.id },
+      data: {
+        googleId: claims.sub,
+        googleEmail: claims.email,
+        displayName: byEmail.displayName ?? claims.name ?? null,
+        avatarUrl: byEmail.avatarUrl ?? pictureUrl(claims.picture),
+      },
+    });
+    setAuthCookie(res, linked);
+    return backToApp(res, "/");
+  }
 
   // --- a new account ---
   const username = await uniqueUsername(usernameSeed(claims));
@@ -361,12 +406,14 @@ authRouter.get("/google/callback", async (req, res) => {
       timezone: state.tz,
       displayName: claims.name ?? null,
       avatarUrl: pictureUrl(claims.picture),
+      // Google only hands over verified addresses.
+      emailVerifiedAt: new Date(),
       // passwordHash stays null: this account signs in with Google until it chooses
       // to set one.
     },
   });
 
-  setAuthCookie(res, user.id);
+  setAuthCookie(res, user);
   backToApp(res, "/?welcome=google");
 });
 
@@ -413,11 +460,148 @@ authRouter.post("/me/password", requireAuth, loadUser, async (req, res) => {
     }
   }
 
+  // Every other session dies with the old password; this one is re-issued so the
+  // person changing it isn't thrown out mid-sentence.
   const user = await prisma.user.update({
     where: { id: req.user.id },
-    data: { passwordHash: await hashPassword(password) },
+    data: { passwordHash: await hashPassword(password), tokenVersion: { increment: 1 } },
   });
+  setAuthCookie(res, user);
   res.json({ user: publicUser(user) });
+});
+
+/* ------------------------------------------------------------------------- *
+ * Email: verification and password reset
+ * ------------------------------------------------------------------------- */
+
+/** Resend the verification link for the signed-in account. */
+authRouter.post("/verify/send", requireAuth, loadUser, mailLimiter, async (req, res) => {
+  if (req.user.emailVerifiedAt) return res.json({ ok: true, alreadyVerified: true });
+  await sendVerification(req.user);
+  res.json({ ok: true });
+});
+
+/** The link in the email lands on a page that posts the token here. */
+authRouter.post("/verify", authLimiter, async (req, res) => {
+  const userId = await consumeToken(req.body?.token, "verify");
+  if (!userId) return res.status(400).json({ error: "That link has expired or was already used" });
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { emailVerifiedAt: new Date() },
+  });
+  res.json({ ok: true, user: publicUser(user) });
+});
+
+/**
+ * Always answers the same, whether or not the address has an account — otherwise
+ * this would be a free "is this email registered?" oracle.
+ */
+authRouter.post("/forgot", mailLimiter, async (req, res) => {
+  const email = String(req.body?.email ?? "").trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) return res.status(400).json({ error: "Enter a valid email address" });
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (user) {
+    try {
+      const token = await issueToken(user.id, "reset");
+      await sendMail({
+        to: user.email,
+        subject: "Reset your StreakArena password",
+        ...layout({
+          heading: "Reset your password",
+          body: `Someone (hopefully you) asked to reset the password for ${user.username}. The link works once and expires in an hour.`,
+          cta: "Choose a new password",
+          url: `${APP_URL}/reset-password?token=${token}`,
+          footer: "Didn't ask for this? Ignore it — your password stays as it is.",
+        }),
+      });
+    } catch (error) {
+      console.error("reset mail failed:", error.message);
+    }
+  }
+  res.json({ ok: true });
+});
+
+/**
+ * Sets the new password, signs out every existing session, and signs this browser
+ * in. Clicking the emailed link also proves the inbox, so it verifies the address.
+ */
+authRouter.post("/reset", authLimiter, async (req, res) => {
+  const password = String(req.body?.password ?? "");
+  if (password.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters" });
+  }
+  const userId = await consumeToken(req.body?.token, "reset");
+  if (!userId) return res.status(400).json({ error: "That link has expired or was already used" });
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      passwordHash: await hashPassword(password),
+      tokenVersion: { increment: 1 },
+      emailVerifiedAt: new Date(),
+    },
+  });
+  setAuthCookie(res, user);
+  res.json({ user: publicUser(user) });
+});
+
+/** Signs out every browser, this one included. */
+authRouter.post("/logout-all", requireAuth, loadUser, async (req, res) => {
+  await prisma.user.update({ where: { id: req.user.id }, data: { tokenVersion: { increment: 1 } } });
+  clearAuthCookie(res);
+  res.json({ ok: true });
+});
+
+/**
+ * Deletes the account and everything it owns. Groups it created are handed to the
+ * longest-standing remaining member first, because the schema cascades a creator's
+ * groups — deleting yourself must not delete a group out from under its friends.
+ * Stored files go too, since rows cascade but blobs don't.
+ */
+authRouter.delete("/me", requireAuth, loadUser, authLimiter, async (req, res) => {
+  const user = req.user;
+  if (user.passwordHash) {
+    if (!(await verifyPassword(String(req.body?.password ?? ""), user.passwordHash))) {
+      return res.status(401).json({ error: "That isn't your password" });
+    }
+  } else if (String(req.body?.confirm ?? "") !== user.username) {
+    // No password to check on a Google-only account, so the username is typed back.
+    return res.status(400).json({ error: "Type your username to confirm" });
+  }
+
+  const owned = await prisma.group.findMany({
+    where: { createdById: user.id },
+    select: {
+      id: true,
+      members: {
+        where: { userId: { not: user.id } },
+        orderBy: { joinedAt: "asc" },
+        take: 1,
+        select: { userId: true },
+      },
+    },
+  });
+  const blobs = await prisma.groupMessage.findMany({
+    where: { userId: user.id, filePath: { not: null } },
+    select: { filePath: true },
+  });
+
+  await prisma.$transaction([
+    ...owned
+      .filter((group) => group.members.length)
+      .map((group) =>
+        prisma.group.update({ where: { id: group.id }, data: { createdById: group.members[0].userId } }),
+      ),
+    prisma.user.delete({ where: { id: user.id } }),
+  ]);
+
+  for (const { filePath } of blobs) removeStored(filePath);
+  const avatar = storedAvatarKey(user.avatarUrl);
+  if (avatar) removeStored(avatar);
+
+  clearAuthCookie(res);
+  res.json({ ok: true });
 });
 
 /**

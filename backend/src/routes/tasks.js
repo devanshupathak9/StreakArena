@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../db.js";
 import { loadUser, requireAuth } from "../auth.js";
+import { syncLimiter } from "../limits.js";
 import { getPlatform, isPlatformId, publicAccount } from "../platforms.js";
 import {
   canSync,
@@ -541,7 +542,7 @@ tasksRouter.get("/tasks/:id/activity", async (req, res) => {
   });
 });
 
-tasksRouter.post("/sync", async (req, res) => {
+tasksRouter.post("/sync", syncLimiter, async (req, res) => {
   const results = await runSync(req.user);
   if (!results.length) {
     return res.json({ results, message: "No tasks are tagged with a platform yet" });
@@ -549,7 +550,7 @@ tasksRouter.post("/sync", async (req, res) => {
   res.json({ results });
 });
 
-tasksRouter.post("/tasks/:id/sync", async (req, res) => {
+tasksRouter.post("/tasks/:id/sync", syncLimiter, async (req, res) => {
   const task = await prisma.task.findFirst({
     where: { id: req.params.id, userId: req.user.id },
     select: { id: true, platform: true },

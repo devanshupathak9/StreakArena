@@ -33,6 +33,11 @@ services:
       # Background sync of every linked platform; 0 turns it off.
       SYNC_INTERVAL_MINUTES: ${SYNC_INTERVAL_MINUTES:-180}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      # Email: unset key means mail goes to the log and "Forgot password?" is hidden.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-StreakArena <hello@streakarena.app>}
+      APP_URL: ${APP_URL:-}
+      TRUST_PROXY: ${TRUST_PROXY:-}
       # Google sign-in: unset means the routes 404 and the button is hidden, so the
       # app runs fine until there are real credentials in the root .env.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}

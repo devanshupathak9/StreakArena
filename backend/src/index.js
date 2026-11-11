@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import helmet from "helmet";
 import { authRouter, avatarRouter } from "./routes/auth.js";
 import { globalRouter } from "./routes/global.js";
 import { groupsRouter } from "./routes/groups.js";
@@ -15,7 +16,44 @@ import { startScheduler } from "./scheduler.js";
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
 
-app.use(express.json());
+// Behind Caddy/an ALB/CloudFront the client IP arrives in X-Forwarded-For. Without
+// this every request looks like the proxy's, and one IP's rate limit is everyone's.
+// A hop count ("1") or "loopback"; unset means no proxy is trusted.
+if (process.env.TRUST_PROXY) {
+  const value = process.env.TRUST_PROXY;
+  app.set("trust proxy", /^\d+$/.test(value) ? Number(value) : value);
+}
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        // React sets inline style attributes; Inter comes from Google Fonts.
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        // Avatars are any https URL a user pastes, plus Google's profile pictures.
+        imgSrc: ["'self'", "data:", "blob:", "https:"],
+        connectSrc: ["'self'"],
+        frameAncestors: ["'none'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'", "https://accounts.google.com"],
+        // Plain-HTTP test deployments would otherwise have every asset upgraded to
+        // an https that isn't there.
+        upgradeInsecureRequests: process.env.COOKIE_SECURE === "false" ? null : [],
+      },
+    },
+    // HSTS on an http:// deployment is ignored by browsers but misleading; keep it
+    // for real HTTPS.
+    strictTransportSecurity: process.env.COOKIE_SECURE !== "false",
+    // Avatars and attachments are fetched by <img> on the same origin; nothing here
+    // needs cross-origin isolation.
+    crossOriginEmbedderPolicy: false,
+  }),
+);
+app.use(express.json({ limit: "100kb" }));
 app.use(cookieParser());
 app.use(
   cors({
