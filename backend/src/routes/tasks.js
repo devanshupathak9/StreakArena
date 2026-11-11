@@ -327,9 +327,14 @@ tasksRouter.post("/tasks/:id/complete", async (req, res) => {
 
   const task = await prisma.task.findFirst({
     where: { id: req.params.id, userId: req.user.id },
-    select: { id: true },
+    select: { id: true, platform: true },
   });
   if (!task) return res.status(404).json({ error: "Task not found" });
+  // The UI hides the button, but the rule has to hold here too: a platform-backed
+  // day is only ever written by sync, or one curl would buy a leaderboard place.
+  if (task.platform) {
+    return res.status(400).json({ error: "This task is proved by sync — press Sync instead" });
+  }
 
   // Idempotent: marking an already-done day is a no-op rather than an error.
   await prisma.taskCompletion.upsert({
@@ -346,9 +351,13 @@ tasksRouter.delete("/tasks/:id/complete/:date", async (req, res) => {
 
   const task = await prisma.task.findFirst({
     where: { id: req.params.id, userId: req.user.id },
-    select: { id: true },
+    select: { id: true, platform: true },
   });
   if (!task) return res.status(404).json({ error: "Task not found" });
+  // Synced days aren't yours to untick — the next sync would only put them back.
+  if (task.platform) {
+    return res.status(400).json({ error: "This task is proved by sync, so its days can't be edited" });
+  }
 
   await prisma.taskCompletion.deleteMany({ where: { taskId: task.id, localDate: toDbDate(date) } });
   res.json({ ok: true, date });

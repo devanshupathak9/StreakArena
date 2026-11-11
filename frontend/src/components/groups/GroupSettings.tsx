@@ -121,9 +121,13 @@ export default function GroupSettings({ group, onSaved, onLeave, onDelete }: Pro
           <>
             <p className="muted small">
               Deleting the group removes it for everyone. Nobody loses a streak — each member
-              keeps their tasks and their history as personal ones.
+              keeps their tasks and their history as personal ones. Leaving instead hands the
+              group to the member who has been in it longest.
             </p>
             <div className="head-actions">
+              <button type="button" className="button button-ghost danger-button" onClick={onLeave}>
+                Leave and hand over
+              </button>
               <button type="button" className="button button-ghost danger-button" onClick={onDelete}>
                 Delete group
               </button>

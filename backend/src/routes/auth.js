@@ -175,6 +175,8 @@ authRouter.post("/me/avatar", requireAuth, loadUser, (req, res) => {
 
     // The shared allow-list lets PDFs and text through; an avatar is an image.
     if (!req.file.mimetype.startsWith("image/")) {
+      // On disk multer has already written it; nothing will ever reference it.
+      if (req.file.filename) removeStored(req.file.filename);
       return res.status(400).json({ error: "That needs to be an image" });
     }
 

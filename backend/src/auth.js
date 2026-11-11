@@ -75,6 +75,9 @@ export function takeOAuthState(req, res) {
 
 /** Populates req.userId, or 401s. */
 export function requireAuth(req, res, next) {
+  // Several routers mount this on /api, so a request can pass through it more than
+  // once on its way to the handler. Verify once.
+  if (req.userId) return next();
   const token = req.cookies?.[COOKIE_NAME];
   if (!token) return res.status(401).json({ error: "Not signed in" });
   try {
@@ -88,6 +91,9 @@ export function requireAuth(req, res, next) {
 
 /** Loads the signed-in user after requireAuth; 401s if the account is gone. */
 export async function loadUser(req, res, next) {
+  // Same reason as above: without this, one dashboard request read the user row
+  // four times.
+  if (req.user) return next();
   const user = await prisma.user.findUnique({ where: { id: req.userId } });
   if (!user) {
     clearAuthCookie(res);

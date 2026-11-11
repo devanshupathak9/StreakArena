@@ -253,6 +253,41 @@ groupsRouter.patch("/groups/:id", async (req, res) => {
   });
 });
 
+/**
+ * Membership plus a personal task for every challenge already in the group, in one
+ * transaction — so a late joiner starts racing immediately instead of on the next
+ * challenge created, whichever door they came in by. Both join routes go through
+ * here; the public one used to create only the membership, which left Discover
+ * joiners on the board with no tasks to race on.
+ */
+async function joinGroup(group, userId) {
+  const existing = await prisma.groupMember.findUnique({
+    where: { groupId_userId: { groupId: group.id, userId } },
+  });
+  if (existing) return { alreadyMember: true };
+
+  const challenges = await prisma.groupTask.findMany({ where: { groupId: group.id } });
+  try {
+    await prisma.$transaction([
+      prisma.groupMember.create({ data: { groupId: group.id, userId } }),
+      prisma.task.createMany({
+        data: challenges.map((challenge) => ({
+          userId,
+          title: challenge.title,
+          platform: challenge.platform,
+          groupTaskId: challenge.id,
+        })),
+      }),
+    ]);
+  } catch (error) {
+    // A double-click races two joins; the loser hits the unique key, which is not
+    // a failure from the user's point of view.
+    if (error?.code === "P2002") return { alreadyMember: true };
+    throw error;
+  }
+  return { alreadyMember: false };
+}
+
 /** Join a public group without a code. A private group still needs one. */
 groupsRouter.post("/groups/:id/join", async (req, res) => {
   const group = await prisma.group.findUnique({ where: { id: req.params.id } });
@@ -262,49 +297,23 @@ groupsRouter.post("/groups/:id/join", async (req, res) => {
     return res.status(404).json({ error: "Group not found" });
   }
 
-  const existing = await prisma.groupMember.findUnique({
-    where: { groupId_userId: { groupId: group.id, userId: req.user.id } },
-  });
-  if (existing) {
-    return res.json({ group: { id: group.id, name: group.name }, alreadyMember: true });
-  }
-
-  await prisma.groupMember.create({ data: { groupId: group.id, userId: req.user.id } });
-  res.status(201).json({ group: { id: group.id, name: group.name } });
+  const { alreadyMember } = await joinGroup(group, req.user.id);
+  res
+    .status(alreadyMember ? 200 : 201)
+    .json({ group: { id: group.id, name: group.name }, ...(alreadyMember ? { alreadyMember } : {}) });
 });
 
-/**
- * Joining backfills a personal task for every challenge already in the group, so a
- * late joiner starts racing immediately instead of on the next one created.
- */
 groupsRouter.post("/groups/join", async (req, res) => {
   const code = String(req.body?.code ?? "").trim().toUpperCase();
   if (!code) return res.status(400).json({ error: "Enter an invite code" });
 
-  const group = await prisma.group.findUnique({
-    where: { inviteCode: code },
-    include: { tasks: true },
-  });
+  const group = await prisma.group.findUnique({ where: { inviteCode: code } });
   if (!group) return res.status(404).json({ error: "No group with that code" });
 
-  const existing = await prisma.groupMember.findUnique({
-    where: { groupId_userId: { groupId: group.id, userId: req.user.id } },
-  });
-  if (existing) return res.json({ group: { id: group.id, name: group.name }, alreadyMember: true });
-
-  await prisma.$transaction([
-    prisma.groupMember.create({ data: { groupId: group.id, userId: req.user.id } }),
-    prisma.task.createMany({
-      data: group.tasks.map((task) => ({
-        userId: req.user.id,
-        title: task.title,
-        platform: task.platform,
-        groupTaskId: task.id,
-      })),
-    }),
-  ]);
-
-  res.status(201).json({ group: { id: group.id, name: group.name } });
+  const { alreadyMember } = await joinGroup(group, req.user.id);
+  res
+    .status(alreadyMember ? 200 : 201)
+    .json({ group: { id: group.id, name: group.name }, ...(alreadyMember ? { alreadyMember } : {}) });
 });
 
 /**
@@ -404,21 +413,49 @@ groupsRouter.post("/groups/:id/tasks", async (req, res) => {
   res.status(201).json({ challenge: { id: challenge.id, title: challenge.title } });
 });
 
-/** Removing a challenge detaches everyone's copy instead of deleting their history. */
+/**
+ * Removing a challenge detaches everyone's copy instead of deleting their history.
+ * Only the owner or whoever added it may remove it — otherwise any one member could
+ * take a challenge off everyone else's board.
+ */
 groupsRouter.delete("/groups/:id/tasks/:taskId", async (req, res) => {
   const group = await requireMembership(req.params.id, req.user.id);
   if (!group) return res.status(404).json({ error: "Group not found" });
 
-  const { count } = await prisma.groupTask.deleteMany({
+  const challenge = await prisma.groupTask.findFirst({
     where: { id: req.params.taskId, groupId: group.id },
+    select: { id: true, createdById: true },
   });
-  if (!count) return res.status(404).json({ error: "Challenge not found" });
+  if (!challenge) return res.status(404).json({ error: "Challenge not found" });
+  if (group.createdById !== req.user.id && challenge.createdById !== req.user.id) {
+    return res.status(403).json({ error: "Only the owner or whoever added it can remove a challenge" });
+  }
+
+  await prisma.groupTask.delete({ where: { id: challenge.id } });
   res.json({ ok: true });
 });
 
+/**
+ * Leaving keeps your copies as personal tasks. An owner leaving hands the group to
+ * the longest-standing member rather than orphaning it — a group with no owner can
+ * never be renamed, made private or deleted again. The last member out has nobody
+ * to hand it to, so they're asked to delete it instead.
+ */
 groupsRouter.post("/groups/:id/leave", async (req, res) => {
   const group = await requireMembership(req.params.id, req.user.id);
   if (!group) return res.status(404).json({ error: "Group not found" });
+
+  let successor = null;
+  if (group.createdById === req.user.id) {
+    successor = await prisma.groupMember.findFirst({
+      where: { groupId: group.id, userId: { not: req.user.id } },
+      orderBy: { joinedAt: "asc" },
+      select: { userId: true },
+    });
+    if (!successor) {
+      return res.status(400).json({ error: "You're the last member — delete the group instead" });
+    }
+  }
 
   const challenges = await prisma.groupTask.findMany({
     where: { groupId: group.id },
@@ -432,9 +469,12 @@ groupsRouter.post("/groups/:id/leave", async (req, res) => {
       data: { groupTaskId: null },
     }),
     prisma.groupMember.deleteMany({ where: { groupId: group.id, userId: req.user.id } }),
+    ...(successor
+      ? [prisma.group.update({ where: { id: group.id }, data: { createdById: successor.userId } })]
+      : []),
   ]);
 
-  res.json({ ok: true });
+  res.json({ ok: true, newOwnerId: successor?.userId ?? null });
 });
 
 groupsRouter.delete("/groups/:id", async (req, res) => {
@@ -491,16 +531,29 @@ groupsRouter.get("/groups/:id/messages", async (req, res) => {
   if (req.query.after) {
     const cursor = await prisma.groupMessage.findFirst({
       where: { id: String(req.query.after), groupId: group.id },
-      select: { createdAt: true },
+      select: { id: true, createdAt: true },
     });
     // An unknown cursor falls back to the full page rather than erroring — the
     // message it named may simply have been in a group the user just switched from.
-    after = cursor?.createdAt ?? null;
+    after = cursor ?? null;
   }
 
+  // The id breaks ties: two messages in the same millisecond would otherwise leave
+  // the second one permanently behind a strict "createdAt > cursor".
+  const direction = after ? "asc" : "desc";
   const messages = await prisma.groupMessage.findMany({
-    where: { groupId: group.id, ...(after ? { createdAt: { gt: after } } : {}) },
-    orderBy: { createdAt: after ? "asc" : "desc" },
+    where: {
+      groupId: group.id,
+      ...(after
+        ? {
+            OR: [
+              { createdAt: { gt: after.createdAt } },
+              { createdAt: after.createdAt, id: { gt: after.id } },
+            ],
+          }
+        : {}),
+    },
+    orderBy: [{ createdAt: direction }, { id: direction }],
     take: MESSAGE_LIMIT,
     include: MESSAGE_AUTHOR,
   });

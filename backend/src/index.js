@@ -52,6 +52,9 @@ app.use((req, res) => res.status(404).json({ error: "Not found" }));
 
 // Express 5 forwards rejected async handlers here, so nothing leaks a stack trace.
 app.use((err, req, res, next) => {
+  // A malformed or oversized body is the client's mistake, not a server fault.
+  if (err?.type === "entity.parse.failed") return res.status(400).json({ error: "Malformed JSON" });
+  if (err?.type === "entity.too.large") return res.status(413).json({ error: "Request too large" });
   console.error(err);
   res.status(500).json({ error: "Something went wrong" });
 });
